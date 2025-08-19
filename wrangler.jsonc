@@ -1,0 +1,8 @@
+{
+	"name": "codex-openai-wrapper",
+	"main": "src/index.ts",
+	"compatibility_date": "2025-08-15",
+	"observability": {
+		"enabled": true,
+	},
+}
