@@ -50,9 +50,9 @@ EXPOSE 8787
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:8787/health || exit 1
 
-# Command to run the worker
-# --host 0.0.0.0 is crucial for Docker to allow external connections
-# --port 8787 matches the EXPOSE and wrangler.toml [dev] port
-# --local disables proxying to Cloudflare's network, keeping everything local
-# --persist-to tells miniflare to use the specified path for local storage
-CMD ["wrangler", "dev", "--host", "0.0.0.0", "--port", "8787", "--local", "--persist-to", ".mf"]
+# Create a startup script to handle environment variables
+COPY --chown=worker:nodejs start.sh /app/start.sh
+RUN chmod +x /app/start.sh
+
+# Use the startup script as entrypoint
+ENTRYPOINT ["/app/start.sh"]
