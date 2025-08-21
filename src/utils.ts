@@ -1,4 +1,4 @@
-import { ChatMessage, ToolDefinition, InputItem } from "./types";
+import { ChatMessage, ToolDefinition, InputItem, Tool } from "./types";
 
 export function normalizeModelName(name: string | null | undefined, debugModel: string | null | undefined): string {
 	if (typeof debugModel === "string" && debugModel.trim()) {
@@ -146,20 +146,8 @@ export function convertChatMessagesToResponsesInput(messages: ChatMessage[]): In
 	return inputItems;
 }
 
-export function convertToolsChatToResponses(tools: ToolDefinition[]): Array<{
-	type: string;
-	name: string;
-	description: string;
-	strict: boolean;
-	parameters: Record<string, unknown>;
-}> {
-	const out: Array<{
-		type: string;
-		name: string;
-		description: string;
-		strict: boolean;
-		parameters: Record<string, unknown>;
-	}> = [];
+export function convertToolsChatToResponses(tools: ToolDefinition[]): Tool[] {
+	const out: Tool[] = [];
 	if (!Array.isArray(tools)) {
 		return out;
 	}
@@ -182,10 +170,11 @@ export function convertToolsChatToResponses(tools: ToolDefinition[]): Array<{
 		const params = fn.parameters;
 		out.push({
 			type: "function",
-			name: name,
-			description: desc || "",
-			strict: false,
-			parameters: params || { type: "object", properties: {} }
+			function: {
+				name: name,
+				description: desc || "",
+				parameters: params || { type: "object", properties: {} }
+			}
 		});
 	}
 	return out;

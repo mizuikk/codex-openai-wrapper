@@ -45,19 +45,7 @@ export async function startUpstreamRequest(
 
 	const { accessToken, accountId } = await getRefreshedAuth(env);
 
-	// Debug logging for token source
-	if (env.KV) {
-		try {
-			const kvTokens = await env.KV.get("auth_tokens", "json");
-			if (kvTokens) {
-				console.log("🔄 AUTH DEBUG: KV tokens available for potential use");
-			} else {
-				console.log("🔄 AUTH DEBUG: No tokens in KV storage");
-			}
-		} catch (e) {
-			console.error("🔄 AUTH DEBUG: Error checking KV tokens:", e);
-		}
-	}
+	// KV token check (minimal logging)
 
 	if (!accessToken || !accountId) {
 		return {
@@ -122,13 +110,6 @@ export async function startUpstreamRequest(
 	}
 
 	try {
-		// Debug logging
-		console.log("=== UPSTREAM REQUEST DEBUG ===");
-		console.log("Request URL:", requestUrl);
-		console.log("Request headers:", headers);
-		console.log("Request body:", requestBody);
-		console.log("Is Ollama request:", isOllamaRequest);
-
 		const upstreamResponse = await fetch(requestUrl, {
 			method: "POST",
 			headers: headers,
@@ -137,28 +118,19 @@ export async function startUpstreamRequest(
 			// You might need to implement a custom timeout using AbortController if necessary.
 		});
 
-		console.log("=== UPSTREAM RESPONSE DEBUG ===");
-		console.log("Response status:", upstreamResponse.status);
-		console.log("Response statusText:", upstreamResponse.statusText);
-		console.log("Response headers:", Object.fromEntries(upstreamResponse.headers.entries()));
+		// Response received
 
 		if (!upstreamResponse.ok) {
 			// Handle HTTP errors from upstream
 			const errorBody = (await upstreamResponse
 				.json()
 				.catch(() => ({ raw: upstreamResponse.statusText }))) as ErrorBody;
-			console.log("=== UPSTREAM ERROR DEBUG ===");
-			console.log("Error status:", upstreamResponse.status);
-			console.log("Error body:", errorBody);
+			// Error response from upstream
 
 			// Check if it's a 401 Unauthorized and we can refresh the token
 			if (upstreamResponse.status === 401 && env.OPENAI_CODEX_AUTH) {
-				console.log("🚨 AUTH DEBUG: Received 401 Unauthorized, attempting automatic token refresh...");
-
 				const refreshedTokens = await refreshAccessToken(env);
 				if (refreshedTokens) {
-					// Retry the request with the new token
-					console.log("🔄 AUTH DEBUG: Token refreshed, retrying request with new token...");
 
 					const headers: HeadersInit = {
 						"Content-Type": "application/json"
@@ -181,14 +153,8 @@ export async function startUpstreamRequest(
 					});
 
 					if (retryResponse.ok) {
-						console.log("✅ AUTH DEBUG: Retry successful with refreshed token");
 						return { response: retryResponse, error: null };
-					} else {
-						console.log("❌ AUTH DEBUG: Retry failed even with refreshed token");
-						// Fall through to original error handling
 					}
-				} else {
-					console.log("❌ AUTH DEBUG: Token refresh failed, falling back to original error");
 				}
 			}
 

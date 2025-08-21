@@ -5,23 +5,20 @@ import { normalizeModelName, convertChatMessagesToResponsesInput, convertToolsCh
 import { buildReasoningParam, applyReasoningToMessage } from "../reasoning";
 import { sseTranslateChat, sseTranslateText } from "../sse";
 import { getBaseInstructions } from "../instructions";
+import { openaiAuthMiddleware } from "../middleware/openaiAuthMiddleware";
 
 const openai = new Hono<{ Bindings: Env }>();
 
-openai.post("/v1/chat/completions", async (c) => {
+openai.post("/v1/chat/completions", openaiAuthMiddleware(), async (c) => {
 	const verbose = c.env.VERBOSE === "true";
 	const reasoningEffort = c.env.REASONING_EFFORT || "minimal";
 	const reasoningSummary = c.env.REASONING_SUMMARY || "auto";
 	const reasoningCompat = c.env.REASONING_COMPAT || "think-tags";
 	const debugModel = c.env.DEBUG_MODEL;
 
+	// Minimal request logging
 	if (verbose) {
-		try {
-			const bodyPreview = (await c.req.text()).substring(0, 2000);
-			console.log("IN POST /v1/chat/completions\n" + bodyPreview);
-		} catch {
-			// Ignore logging errors
-		}
+		console.log("POST /v1/chat/completions");
 	}
 
 	let payload: Record<string, unknown>;
@@ -86,35 +83,23 @@ openai.post("/v1/chat/completions", async (c) => {
 			: undefined;
 	const reasoningParam = buildReasoningParam(reasoningEffort, reasoningSummary, reasoningOverrides);
 
-	// Debug authentication
+	// Auth check (minimal logging)
 	if (verbose) {
-		console.log("=== AUTHENTICATION DEBUG ===");
-		const auth = await import("../auth_kv").then((m) => m.getEffectiveChatgptAuth(c.env));
-		console.log("Auth result:", auth);
+		console.log("Authentication verified");
 	}
 
 	const instructions = await getBaseInstructions();
 
 	const { response: upstream, error: errorResp } = await startUpstreamRequest(c.env, model, inputItems, {
 		instructions: instructions,
-		tools: toolsResponses as unknown as Array<{
-			type: string;
-			function: { name: string; description?: string; parameters?: Record<string, unknown> };
-		}>,
+		tools: toolsResponses,
 		toolChoice: toolChoice,
 		parallelToolCalls: parallelToolCalls,
 		reasoningParam: reasoningParam
 	});
 
 	if (verbose) {
-		console.log("=== UPSTREAM REQUEST DEBUG ===");
-		console.log("Model:", model);
-		console.log("Input items:", JSON.stringify(inputItems, null, 2));
-		console.log("Instructions length:", instructions.length);
-		console.log("Tools:", toolsResponses);
-		console.log("Tool choice:", toolChoice);
-		console.log("Parallel tool calls:", parallelToolCalls);
-		console.log("Reasoning param:", reasoningParam);
+		console.log(`Upstream request: model=${model}, messages=${inputItems.length}, tools=${toolsResponses?.length || 0}`);
 	}
 
 	if (errorResp) {
@@ -244,19 +229,15 @@ openai.post("/v1/chat/completions", async (c) => {
 	}
 });
 
-openai.post("/v1/completions", async (c) => {
+openai.post("/v1/completions", openaiAuthMiddleware(), async (c) => {
 	const verbose = c.env.VERBOSE === "true";
 	const debugModel = c.env.DEBUG_MODEL;
 	const reasoningEffort = c.env.REASONING_EFFORT || "minimal";
 	const reasoningSummary = c.env.REASONING_SUMMARY || "auto";
 
+	// Minimal request logging
 	if (verbose) {
-		try {
-			const bodyPreview = (await c.req.text()).substring(0, 2000);
-			console.log("IN POST /v1/completions\n" + bodyPreview);
-		} catch {
-			// Ignore logging errors
-		}
+		console.log("POST /v1/completions");
 	}
 
 	let payload: Record<string, unknown>;
@@ -281,8 +262,8 @@ openai.post("/v1/completions", async (c) => {
 	}
 	const streamReq = Boolean(payload.stream);
 
-	const messages = [{ role: "user", content: prompt || "" }];
-	const inputItems = convertChatMessagesToResponsesInput(messages as Array<{ role: string; content: string }>);
+	const messages: ChatMessage[] = [{ role: "user", content: String(prompt || "") }];
+	const inputItems = convertChatMessagesToResponsesInput(messages);
 
 	const reasoningOverrides =
 		typeof payload.reasoning === "object" && payload.reasoning !== null
@@ -299,24 +280,20 @@ openai.post("/v1/completions", async (c) => {
 
 	if (errorResp) {
 		if (verbose) {
-			console.log("=== ERROR RESPONSE DEBUG ===");
-			console.log("Error response:", errorResp);
+			console.log("Upstream error response");
 		}
 		return errorResp;
 	}
 
 	if (!upstream) {
 		if (verbose) {
-			console.log("=== NO UPSTREAM RESPONSE DEBUG ===");
-			console.log("Upstream response is null");
+			console.log("No upstream response received");
 		}
 		return c.json({ error: { message: "Upstream request failed unexpectedly." } }, 500);
 	}
 
 	if (verbose) {
-		console.log("=== UPSTREAM RESPONSE DEBUG ===");
-		console.log("Upstream status:", upstream.status);
-		console.log("Upstream headers:", Object.fromEntries(upstream.headers.entries()));
+		console.log(`Upstream response: ${upstream.status}`);
 	}
 
 	const created = Math.floor(Date.now() / 1000);

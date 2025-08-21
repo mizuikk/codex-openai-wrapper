@@ -95,7 +95,7 @@ export async function refreshAccessToken(env: Env): Promise<TokenData | null> {
 		});
 
 		if (!response.ok) {
-			console.error("Token refresh failed:", response.status, await response.text());
+			console.error("Token refresh failed:", response.status);
 			return null;
 		}
 
@@ -119,16 +119,10 @@ export async function refreshAccessToken(env: Env): Promise<TokenData | null> {
 
 		// Store in KV if available
 		if (env.KV) {
-			console.log("💾 AUTH DEBUG: Saving refreshed tokens to KV storage");
 			await env.KV.put("auth_tokens", JSON.stringify(updatedTokens));
 			await env.KV.put("auth_last_refresh", new Date().toISOString());
-		} else {
-			console.log("💾 AUTH DEBUG: No KV storage available, tokens not persisted");
 		}
-
-		console.log("✅ AUTH DEBUG: Token refreshed successfully");
 		return updatedTokens;
-
 	} catch (e) {
 		console.error("Error refreshing token:", e);
 		return null;
@@ -140,11 +134,8 @@ export async function getRefreshedAuth(env: Env): Promise<{ accessToken: string 
 	const currentAuth = await getEffectiveChatgptAuth(env);
 
 	if (!currentAuth.accessToken) {
-		console.log("🔐 AUTH DEBUG: No access token found in environment");
 		return currentAuth;
 	}
-
-	console.log("🔐 AUTH DEBUG: Found access token in environment");
 
 	// Check if token needs refresh (older than 28 days or if we have KV storage with newer tokens)
 	let needsRefresh = false;
@@ -170,12 +161,11 @@ export async function getRefreshedAuth(env: Env): Promise<{ accessToken: string 
 			const kvLastRefresh = await env.KV.get("auth_last_refresh");
 			if (kvLastRefresh) {
 				const kvRefreshTime = new Date(kvLastRefresh);
-				if (kvRefreshTime.getTime() > Date.now() - (28 * 24 * 60 * 60 * 1000)) {
+				if (kvRefreshTime.getTime() > Date.now() - 28 * 24 * 60 * 60 * 1000) {
 					// KV has newer tokens, use those
 					const kvTokens = await env.KV.get("auth_tokens", "json");
 					if (kvTokens) {
 						const tokens = kvTokens as TokenData;
-						console.log("🔐 AUTH DEBUG: Using tokens from KV storage");
 						return {
 							accessToken: tokens.access_token,
 							accountId: tokens.account_id || null

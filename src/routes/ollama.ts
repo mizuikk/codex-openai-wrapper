@@ -3,10 +3,11 @@ import { Env } from "../types";
 import { startUpstreamRequest } from "../upstream";
 import { normalizeModelName, convertChatMessagesToResponsesInput } from "../utils";
 import { getBaseInstructions } from "../instructions";
+import { openaiAuthMiddleware } from "../middleware/openaiAuthMiddleware";
 
 const ollama = new Hono<{ Bindings: Env }>();
 
-ollama.post("/chat", async (c) => {
+ollama.post("/chat", openaiAuthMiddleware(), async (c) => {
 	const debugModel = c.env.DEBUG_MODEL;
 
 	let payload: Record<string, unknown>;
@@ -105,7 +106,7 @@ ollama.post("/chat", async (c) => {
 	}
 });
 
-ollama.post("/show", async (c) => {
+ollama.post("/show", openaiAuthMiddleware(), async (c) => {
 	let payload: Record<string, unknown>;
 	try {
 		payload = await c.req.json();
