@@ -99,7 +99,9 @@ openai.post("/v1/chat/completions", openaiAuthMiddleware(), async (c) => {
 	});
 
 	if (verbose) {
-		console.log(`Upstream request: model=${model}, messages=${inputItems.length}, tools=${toolsResponses?.length || 0}`);
+		console.log(
+			`Upstream request: model=${model}, messages=${inputItems.length}, tools=${toolsResponses?.length || 0}`
+		);
 	}
 
 	if (errorResp) {

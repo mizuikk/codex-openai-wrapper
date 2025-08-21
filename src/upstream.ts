@@ -131,7 +131,6 @@ export async function startUpstreamRequest(
 			if (upstreamResponse.status === 401 && env.OPENAI_CODEX_AUTH) {
 				const refreshedTokens = await refreshAccessToken(env);
 				if (refreshedTokens) {
-
 					const headers: HeadersInit = {
 						"Content-Type": "application/json"
 					};
