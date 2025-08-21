@@ -20,7 +20,14 @@ Transform OpenAI's Codex models into OpenAI-compatible endpoints using Cloudflar
 
 ## 🚀 Quick Start
 
-### Prerequisites
+### Deployment Options
+
+Choose your preferred deployment method:
+
+- **🌐 Cloudflare Workers** (Recommended) - Serverless, global edge deployment
+- **🐳 Docker** - Self-hosted with full control - [See Docker Guide](docs/docker.md)
+
+### Prerequisites (Cloudflare Workers)
 
 1. **OpenAI Account** with Codex CLI access
 2. **Cloudflare Account** with Workers enabled
@@ -163,6 +170,8 @@ wrangler secret put CHATGPT_RESPONSES_URL
 
 ### Step 4: Deploy
 
+#### Option A: Cloudflare Workers (Recommended)
+
 ```bash
 # Install dependencies
 npm install
@@ -173,6 +182,38 @@ npm run deploy
 # Or run locally for development
 npm run dev
 ```
+
+#### Option B: Docker Deployment
+
+For self-hosted deployment with Docker, see the comprehensive [Docker Deployment Guide](docs/docker.md).
+
+Quick Docker start with pre-built image:
+```bash
+# Pull and run the latest image
+docker pull ghcr.io/gewoonjaap/codex-openai-wrapper:latest
+
+# Create environment file
+echo "OPENAI_API_KEY=sk-your-api-key-here" > .env
+echo "OPENAI_CODEX_AUTH={...your-auth-json...}" >> .env
+
+# Run the container
+docker run -d \
+  --name codex-openai-wrapper \
+  -p 8787:8787 \
+  --env-file .env \
+  ghcr.io/gewoonjaap/codex-openai-wrapper:latest
+```
+
+Or use Docker Compose for development:
+```bash
+git clone https://github.com/GewoonJaap/codex-openai-wrapper.git
+cd codex-openai-wrapper
+cp .dev.vars.example .dev.vars
+# Edit .dev.vars with your configuration
+docker-compose up -d
+```
+
+The service will be available at `http://localhost:8787`
 
 ## 🔧 Configuration
 
