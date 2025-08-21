@@ -1,0 +1,27 @@
+name = "codex-openai-wrapper"
+main = "src/index.ts"
+compatibility_date = "2024-09-23"
+
+compatibility_flags = ["nodejs_compat"]
+
+# [vars]
+OLLAMA_API_URL = "http://localhost:11434" # Ollama API endpoint (set via wrangler secret put)
+
+[secrets]
+# Set these secrets via wrangler CLI:
+# wrangler secret put CHATGPT_LOCAL_CLIENT_ID
+# wrangler secret put CHATGPT_RESPONSES_URL
+# wrangler secret put OPENAI_CODEX_AUTH
+# wrangler secret put OLLAMA_API_URL
+
+
+# --- Local Development Configuration ---
+# This section configures local development with Docker and miniflare
+[dev]
+ip = "0.0.0.0"          # Bind to all interfaces for Docker access
+port = 8787             # Port for local development server
+# Note: --persist-to flag in Docker handles storage location
+
+# wrangler.toml (wrangler v3.88.0^)
+[observability.logs]
+enabled = true

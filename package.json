@@ -7,10 +7,24 @@
 		"dev": "wrangler dev",
 		"start": "wrangler dev",
 		"test": "vitest",
-		"cf-typegen": "wrangler types"
+		"cf-typegen": "wrangler types",
+		"format": "prettier --write src",
+		"format:check": "prettier --check src",
+		"build": "wrangler deploy --dry-run --outdir=dist",
+		"tsc": "tsc --noEmit --skipLibCheck",
+		"lint": "eslint --ext .ts src && npm run tsc",
+		"lint:fix": "eslint --ext .ts src --fix"
 	},
 	"devDependencies": {
 		"@cloudflare/vitest-pool-workers": "^0.8.19",
+		"@cloudflare/workers-types": "^4.20250819.0",
+		"@eslint/eslintrc": "^3.3.1",
+		"@eslint/js": "^9.32.0",
+		"@types/node": "^24.3.0",
+		"@typescript-eslint/eslint-plugin": "^8.39.1",
+		"@typescript-eslint/parser": "^8.39.1",
+		"eslint": "^9.33.0",
+		"prettier": "^3.6.2",
 		"typescript": "^5.5.2",
 		"vitest": "~3.2.0",
 		"wrangler": "4"
