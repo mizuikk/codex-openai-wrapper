@@ -125,7 +125,7 @@ export async function startUpstreamRequest(
 			const errorBody = (await upstreamResponse
 				.json()
 				.catch(() => ({ raw: upstreamResponse.statusText }))) as ErrorBody;
-			
+
 			// Log complete error details for OpenAI failures
 			console.error("=== OPENAI API ERROR ===");
 			console.error("Status:", upstreamResponse.status, upstreamResponse.statusText);
@@ -191,7 +191,7 @@ export async function startUpstreamRequest(
 			console.error("Error Stack:", e.stack);
 		}
 		console.error("================================");
-		
+
 		return {
 			response: null,
 			error: new Response(
