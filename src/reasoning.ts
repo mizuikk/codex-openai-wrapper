@@ -4,14 +4,14 @@ type ReasoningParam = {
 };
 
 export function buildReasoningParam(
-	baseEffort: string = "medium",
+	baseEffort: string = "minimal",
 	baseSummary: string = "auto",
 	overrides?: { effort?: string; summary?: string }
 ): ReasoningParam {
 	let effort = (baseEffort || "").trim().toLowerCase();
 	let summary = (baseSummary || "").trim().toLowerCase();
 
-	const validEfforts = new Set(["low", "medium", "high", "none"]);
+	const validEfforts = new Set(["low", "medium", "high", "none", "minimal"]);
 	const validSummaries = new Set(["auto", "concise", "detailed", "none"]);
 
 	if (overrides) {
@@ -26,7 +26,7 @@ export function buildReasoningParam(
 	}
 
 	if (!validEfforts.has(effort)) {
-		effort = "medium";
+		effort = "minimal";
 	}
 	if (!validSummaries.has(summary)) {
 		summary = "auto";
@@ -39,15 +39,23 @@ export function buildReasoningParam(
 	return reasoning;
 }
 
+interface ChatMessage {
+	role: string;
+	content: string | null;
+	reasoning?: string | { content: { type: string; text: string }[] };
+	reasoning_summary?: string;
+	[key: string]: unknown;
+}
+
 export function applyReasoningToMessage(
-	message: any,
+	message: ChatMessage,
 	reasoningSummaryText: string,
 	reasoningFullText: string,
 	compat: string
-): any {
+): ChatMessage {
 	try {
 		compat = (compat || "think-tags").trim().toLowerCase();
-	} catch (e) {
+	} catch {
 		compat = "think-tags";
 	}
 

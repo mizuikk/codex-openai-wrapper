@@ -1,14 +1,26 @@
 import { normalizeModelName } from "./utils";
 import { getEffectiveChatgptAuth } from "./auth_kv"; // Corrected import path
 import { getBaseInstructions } from "./instructions";
-import { Env } from "./types"; // Import Env type
+import { Env, InputItem, Tool } from "./types"; // Import types
 
 type ReasoningParam = {
 	effort?: string;
 	summary?: string;
 };
 
-async function generateSessionId(instructions: string | undefined, inputItems: any[]): Promise<string> {
+type ToolChoice = "auto" | "none" | { type: string; function: { name: string } };
+
+type OllamaPayload = Record<string, unknown>;
+
+type ErrorBody = {
+	error?: {
+		message: string;
+	};
+	raw?: string;
+	[key: string]: unknown;
+};
+
+async function generateSessionId(instructions: string | undefined, inputItems: InputItem[]): Promise<string> {
 	const content = `${instructions || ""}|${JSON.stringify(inputItems)}`;
 	const hashBuffer = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(content));
 	const hashArray = Array.from(new Uint8Array(hashBuffer));
@@ -18,15 +30,15 @@ async function generateSessionId(instructions: string | undefined, inputItems: a
 export async function startUpstreamRequest(
 	env: Env, // Pass the environment object
 	model: string,
-	inputItems: any[],
+	inputItems: InputItem[],
 	options?: {
 		instructions?: string;
-		tools?: any[];
-		toolChoice?: any;
+		tools?: Tool[];
+		toolChoice?: ToolChoice;
 		parallelToolCalls?: boolean;
 		reasoningParam?: ReasoningParam;
 		ollamaPath?: string; // Added for Ollama specific paths
-		ollamaPayload?: any; // Added for Ollama specific payloads
+		ollamaPayload?: OllamaPayload; // Added for Ollama specific payloads
 	}
 ): Promise<{ response: Response | null; error: Response | null }> {
 	const { instructions, tools, toolChoice, parallelToolCalls, reasoningParam } = options || {};
@@ -69,7 +81,8 @@ export async function startUpstreamRequest(
 				input: inputItems,
 				tools: tools || [],
 				tool_choice:
-					(toolChoice && ["auto", "none"].includes(toolChoice)) || toolChoice === undefined
+					(toolChoice && (toolChoice === "auto" || toolChoice === "none" || typeof toolChoice === "object")) ||
+					toolChoice === undefined
 						? toolChoice || "auto"
 						: "auto",
 				parallel_tool_calls: parallelToolCalls || false,
@@ -118,7 +131,9 @@ export async function startUpstreamRequest(
 
 		if (!upstreamResponse.ok) {
 			// Handle HTTP errors from upstream
-			const errorBody: any = await upstreamResponse.json().catch(() => ({ raw: upstreamResponse.statusText }));
+			const errorBody = (await upstreamResponse
+				.json()
+				.catch(() => ({ raw: upstreamResponse.statusText }))) as ErrorBody;
 			console.log("=== UPSTREAM ERROR DEBUG ===");
 			console.log("Error status:", upstreamResponse.status);
 			console.log("Error body:", errorBody);
@@ -136,13 +151,13 @@ export async function startUpstreamRequest(
 		}
 
 		return { response: upstreamResponse, error: null };
-	} catch (e: any) {
+	} catch (e: unknown) {
 		return {
 			response: null,
 			error: new Response(
 				JSON.stringify({
 					error: {
-						message: `Upstream ChatGPT request failed: ${e.message || e}`
+						message: `Upstream ChatGPT request failed: ${e instanceof Error ? e.message : String(e)}`
 					}
 				}),
 				{ status: 502, headers: { "Content-Type": "application/json" } }

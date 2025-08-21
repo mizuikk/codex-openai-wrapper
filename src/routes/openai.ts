@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { Env } from "../types";
+import { Env, ToolDefinition, ToolChoice, ChatMessage } from "../types";
 import { startUpstreamRequest } from "../upstream";
 import { normalizeModelName, convertChatMessagesToResponsesInput, convertToolsChatToResponses } from "../utils";
 import { buildReasoningParam, applyReasoningToMessage } from "../reasoning";
@@ -20,12 +20,12 @@ openai.post("/v1/chat/completions", async (c) => {
 		try {
 			const bodyPreview = (await c.req.text()).substring(0, 2000);
 			console.log("IN POST /v1/chat/completions\n" + bodyPreview);
-		} catch (e) {
+		} catch {
 			// Ignore logging errors
 		}
 	}
 
-	let payload: any;
+	let payload: Record<string, unknown>;
 	try {
 		const raw = await c.req.text();
 		if (!raw) {
@@ -33,16 +33,16 @@ openai.post("/v1/chat/completions", async (c) => {
 		} else {
 			payload = JSON.parse(raw);
 		}
-	} catch (e) {
+	} catch {
 		try {
 			const raw = (await c.req.text()).replace(/\r/g, "").replace(/\n/g, "");
 			payload = JSON.parse(raw);
-		} catch (e2) {
+		} catch {
 			return c.json({ error: { message: "Invalid JSON body" } }, 400);
 		}
 	}
 
-	const model = normalizeModelName(payload.model, debugModel);
+	const model = normalizeModelName(payload.model as string, debugModel);
 	let messages = payload.messages;
 	if (!messages && typeof payload.prompt === "string") {
 		messages = [{ role: "user", content: payload.prompt }];
@@ -57,7 +57,13 @@ openai.post("/v1/chat/completions", async (c) => {
 		return c.json({ error: { message: "Request must include messages: []" } }, 400);
 	}
 
-	const sysIdx = messages.findIndex((m: any) => typeof m === "object" && m !== null && m.role === "system");
+	const sysIdx = messages.findIndex((m: unknown) => {
+		if (typeof m === "object" && m !== null) {
+			const msg = m as { role?: string };
+			return msg.role === "system";
+		}
+		return false;
+	});
 	if (sysIdx !== -1) {
 		const sysMsg = messages.splice(sysIdx, 1)[0]; // Get the first element of the spliced array
 		const content = (typeof sysMsg === "object" && sysMsg !== null && sysMsg.content) || "";
@@ -66,16 +72,19 @@ openai.post("/v1/chat/completions", async (c) => {
 
 	const isStream = Boolean(payload.stream);
 
-	const toolsResponses = convertToolsChatToResponses(payload.tools);
-	const toolChoice = payload.tool_choice || "auto";
+	const toolsResponses = convertToolsChatToResponses(payload.tools as ToolDefinition[]);
+	const toolChoice = (payload.tool_choice as ToolChoice) || "auto";
 	const parallelToolCalls = Boolean(payload.parallel_tool_calls);
 
-	const inputItems: any[] = convertChatMessagesToResponsesInput(messages) || []; // Initialize as array
+	const inputItems = convertChatMessagesToResponsesInput(messages as ChatMessage[]) || [];
 	if (typeof payload.prompt === "string" && payload.prompt.trim()) {
 		inputItems.push({ type: "message", role: "user", content: [{ type: "input_text", text: payload.prompt }] });
 	}
 
-	const reasoningOverrides = typeof payload.reasoning === "object" ? payload.reasoning : undefined;
+	const reasoningOverrides: { effort?: string; summary?: string } | undefined =
+		typeof payload.reasoning === "object" && payload.reasoning !== null
+			? (payload.reasoning as { effort?: string; summary?: string })
+			: undefined;
 	const reasoningParam = buildReasoningParam(reasoningEffort, reasoningSummary, reasoningOverrides);
 
 	// Debug authentication
@@ -89,7 +98,10 @@ openai.post("/v1/chat/completions", async (c) => {
 
 	const { response: upstream, error: errorResp } = await startUpstreamRequest(c.env, model, inputItems, {
 		instructions: instructions,
-		tools: toolsResponses,
+		tools: toolsResponses as unknown as Array<{
+			type: string;
+			function: { name: string; description?: string; parameters?: Record<string, unknown> };
+		}>,
 		toolChoice: toolChoice,
 		parallelToolCalls: parallelToolCalls,
 		reasoningParam: reasoningParam
@@ -131,7 +143,7 @@ openai.post("/v1/chat/completions", async (c) => {
 		let reasoningSummaryText = "";
 		let reasoningFullText = "";
 		let responseId = "chatcmpl";
-		const toolCalls: any[] = [];
+		const toolCalls: Array<{ id: string; type: string; function: { name: string; arguments: string } }> = [];
 		let errorMessage: string | null = null;
 
 		// Non-streaming response handling (simplified, as full SSE parsing is complex)
@@ -200,7 +212,11 @@ openai.post("/v1/chat/completions", async (c) => {
 			return c.json({ error: { message: errorMessage } }, 502);
 		}
 
-		let message: any = { role: "assistant", content: fullText || null };
+		let message: {
+			role: string;
+			content: string | null;
+			tool_calls?: Array<{ id: string; type: string; function: { name: string; arguments: string } }>;
+		} = { role: "assistant", content: fullText || null };
 		if (toolCalls.length > 0) {
 			message.tool_calls = toolCalls;
 		}
@@ -240,12 +256,12 @@ openai.post("/v1/completions", async (c) => {
 		try {
 			const bodyPreview = (await c.req.text()).substring(0, 2000);
 			console.log("IN POST /v1/completions\n" + bodyPreview);
-		} catch (e) {
+		} catch {
 			// Ignore logging errors
 		}
 	}
 
-	let payload: any;
+	let payload: Record<string, unknown>;
 	try {
 		const raw = await c.req.text();
 		if (!raw) {
@@ -253,11 +269,11 @@ openai.post("/v1/completions", async (c) => {
 		} else {
 			payload = JSON.parse(raw);
 		}
-	} catch (e) {
+	} catch {
 		return c.json({ error: { message: "Invalid JSON body" } }, 400);
 	}
 
-	const model = normalizeModelName(payload.model, debugModel);
+	const model = normalizeModelName(payload.model as string, debugModel);
 	let prompt = payload.prompt;
 	if (Array.isArray(prompt)) {
 		prompt = prompt.join("");
@@ -268,9 +284,12 @@ openai.post("/v1/completions", async (c) => {
 	const streamReq = Boolean(payload.stream);
 
 	const messages = [{ role: "user", content: prompt || "" }];
-	const inputItems = convertChatMessagesToResponsesInput(messages);
+	const inputItems = convertChatMessagesToResponsesInput(messages as Array<{ role: string; content: string }>);
 
-	const reasoningOverrides = typeof payload.reasoning === "object" ? payload.reasoning : undefined;
+	const reasoningOverrides =
+		typeof payload.reasoning === "object" && payload.reasoning !== null
+			? (payload.reasoning as { effort?: string; summary?: string })
+			: undefined;
 	const reasoningParam = buildReasoningParam(reasoningEffort, reasoningSummary, reasoningOverrides);
 
 	const instructions = await getBaseInstructions();

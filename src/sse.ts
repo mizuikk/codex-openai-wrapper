@@ -1,4 +1,22 @@
 // src/sse.ts
+interface SseEvent {
+	type: string;
+	response?: {
+		id?: string;
+		error?: {
+			message: string;
+		};
+	};
+	item?: {
+		type: string;
+		call_id?: string;
+		id?: string;
+		name?: string;
+		arguments?: string;
+	};
+	delta?: string;
+}
+
 export async function sseTranslateChat(
 	upstreamResponse: Response,
 	model: string,
@@ -14,7 +32,6 @@ export async function sseTranslateChat(
 	let responseId = "chatcmpl-stream";
 	let thinkOpen = false;
 	let thinkClosed = false;
-	let sawOutput = false;
 	let sawAnySummary = false;
 	let pendingSummaryParagraph = false;
 
@@ -51,7 +68,7 @@ export async function sseTranslateChat(
 							break;
 						}
 
-						let evt: any;
+						let evt: SseEvent;
 						try {
 							evt = JSON.parse(data);
 						} catch (e) {
@@ -78,7 +95,6 @@ export async function sseTranslateChat(
 								thinkOpen = false;
 								thinkClosed = true;
 							}
-							sawOutput = true;
 							const chunk = {
 								id: responseId,
 								object: "chat.completion.chunk",
@@ -88,8 +104,8 @@ export async function sseTranslateChat(
 							};
 							controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(chunk)}\n\n`));
 						} else if (kind === "response.output_item.done") {
-							const item = evt.item || {};
-							if (item.type === "function_call") {
+							const item = evt.item;
+							if (item && item.type === "function_call") {
 								const callId = item.call_id || item.id || "";
 								const name = item.name || "";
 								const args = item.arguments || "";
@@ -326,7 +342,7 @@ export async function sseTranslateText(
 							continue;
 						}
 
-						let evt: any;
+						let evt: SseEvent;
 						try {
 							evt = JSON.parse(data);
 						} catch (e) {

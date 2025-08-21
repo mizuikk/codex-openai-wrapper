@@ -1,3 +1,5 @@
+import { ChatMessage, ToolDefinition, InputItem } from "./types";
+
 export function normalizeModelName(name: string | null | undefined, debugModel: string | null | undefined): string {
 	if (typeof debugModel === "string" && debugModel.trim()) {
 		return debugModel.trim();
@@ -17,8 +19,8 @@ export function normalizeModelName(name: string | null | undefined, debugModel: 
 	return mapping[base] || base;
 }
 
-export function convertChatMessagesToResponsesInput(messages: any[]): any[] {
-	const inputItems: any[] = [];
+export function convertChatMessagesToResponsesInput(messages: ChatMessage[]): InputItem[] {
+	const inputItems: InputItem[] = [];
 
 	function _normalizeImageDataURL(url: string): string {
 		try {
@@ -41,11 +43,11 @@ export function convertChatMessagesToResponsesInput(messages: any[]): any[] {
 			try {
 				// Just validate, no need to store decoded data
 				atob(decodedData);
-			} catch (e) {
+			} catch {
 				return url;
 			}
 			return `${header},${decodedData}`;
-		} catch (e) {
+		} catch {
 			return url;
 		}
 	}
@@ -109,7 +111,7 @@ export function convertChatMessagesToResponsesInput(messages: any[]): any[] {
 		}
 
 		const content = message.content || "";
-		const contentItems: any[] = [];
+		const contentItems: Array<{ type: string; text?: string; image_url?: string }> = [];
 		if (Array.isArray(content)) {
 			for (const part of content) {
 				if (typeof part !== "object" || part === null) {
@@ -144,8 +146,20 @@ export function convertChatMessagesToResponsesInput(messages: any[]): any[] {
 	return inputItems;
 }
 
-export function convertToolsChatToResponses(tools: any): any[] {
-	const out: any[] = [];
+export function convertToolsChatToResponses(tools: ToolDefinition[]): Array<{
+	type: string;
+	name: string;
+	description: string;
+	strict: boolean;
+	parameters: Record<string, unknown>;
+}> {
+	const out: Array<{
+		type: string;
+		name: string;
+		description: string;
+		strict: boolean;
+		parameters: Record<string, unknown>;
+	}> = [];
 	if (!Array.isArray(tools)) {
 		return out;
 	}

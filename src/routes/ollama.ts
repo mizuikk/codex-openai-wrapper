@@ -9,14 +9,14 @@ const ollama = new Hono<{ Bindings: Env }>();
 ollama.post("/chat", async (c) => {
 	const debugModel = c.env.DEBUG_MODEL;
 
-	let payload: any;
+	let payload: Record<string, unknown>;
 	try {
 		payload = await c.req.json();
-	} catch (e) {
+	} catch {
 		return c.json({ error: { message: "Invalid JSON body" } }, 400);
 	}
 
-	const model = normalizeModelName(payload.model, debugModel);
+	const model = normalizeModelName(payload.model as string, debugModel);
 	let messages = payload.messages;
 	if (!messages && typeof payload.prompt === "string") {
 		messages = [{ role: "user", content: payload.prompt }];
@@ -106,14 +106,14 @@ ollama.post("/chat", async (c) => {
 });
 
 ollama.post("/show", async (c) => {
-	let payload: any;
+	let payload: Record<string, unknown>;
 	try {
 		payload = await c.req.json();
-	} catch (e) {
+	} catch {
 		return c.json({ error: { message: "Invalid JSON body" } }, 400);
 	}
 
-	const modelName = payload.name;
+	const modelName = payload.name as string;
 	if (!modelName) {
 		return c.json({ error: { message: "Model name is required" } }, 400);
 	}

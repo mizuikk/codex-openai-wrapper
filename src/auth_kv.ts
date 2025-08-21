@@ -1,5 +1,11 @@
 import { AuthTokens, Env } from "./types";
 
+type JwtClaims = {
+	"https://api.openai.com/auth"?: {
+		chatgpt_account_id?: string;
+	};
+} & Record<string, unknown>;
+
 function urlBase64Decode(input: string): string {
 	// Replace non-url-safe chars with url-safe ones
 	input = input.replace(/-/g, "+").replace(/_/g, "/");
@@ -11,7 +17,7 @@ function urlBase64Decode(input: string): string {
 	return atob(input);
 }
 
-function parseJwtClaims(token: string): any | null {
+function parseJwtClaims(token: string): JwtClaims | null {
 	if (!token || token.split(".").length !== 3) {
 		return null;
 	}
@@ -35,12 +41,12 @@ export async function getEffectiveChatgptAuth(
 	try {
 		const auth: AuthTokens = JSON.parse(env.OPENAI_CODEX_AUTH);
 		const tokens = auth.tokens;
-		let accountId = tokens.account_id;
+		let accountId: string | null = tokens.account_id;
 
 		if (!accountId && tokens.id_token) {
 			const claims = parseJwtClaims(tokens.id_token);
 			if (claims && claims["https://api.openai.com/auth"]) {
-				accountId = claims["https://api.openai.com/auth"].chatgpt_account_id;
+				accountId = claims["https://api.openai.com/auth"].chatgpt_account_id || null;
 			}
 		}
 
