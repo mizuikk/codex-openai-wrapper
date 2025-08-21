@@ -1,5 +1,5 @@
 import { normalizeModelName } from "./utils";
-import { getEffectiveChatgptAuth } from "./auth_kv"; // Corrected import path
+import { getRefreshedAuth, refreshAccessToken } from "./auth_kv"; // Updated import
 import { getBaseInstructions } from "./instructions";
 import { Env, InputItem, Tool } from "./types"; // Import types
 
@@ -43,7 +43,21 @@ export async function startUpstreamRequest(
 ): Promise<{ response: Response | null; error: Response | null }> {
 	const { instructions, tools, toolChoice, parallelToolCalls, reasoningParam } = options || {};
 
-	const { accessToken, accountId } = await getEffectiveChatgptAuth(env);
+	const { accessToken, accountId } = await getRefreshedAuth(env);
+
+	// Debug logging for token source
+	if (env.KV) {
+		try {
+			const kvTokens = await env.KV.get("auth_tokens", "json");
+			if (kvTokens) {
+				console.log("🔄 AUTH DEBUG: KV tokens available for potential use");
+			} else {
+				console.log("🔄 AUTH DEBUG: No tokens in KV storage");
+			}
+		} catch (e) {
+			console.error("🔄 AUTH DEBUG: Error checking KV tokens:", e);
+		}
+	}
 
 	if (!accessToken || !accountId) {
 		return {
@@ -51,7 +65,7 @@ export async function startUpstreamRequest(
 			error: new Response(
 				JSON.stringify({
 					error: {
-						message: "Missing ChatGPT credentials. Run 'python3 chatmock.py login' first (and upload to KV)."
+						message: "Missing ChatGPT credentials. Run 'codex login' first"
 					}
 				}),
 				{ status: 401, headers: { "Content-Type": "application/json" } }
@@ -102,7 +116,6 @@ export async function startUpstreamRequest(
 		headers["Accept"] = "text/event-stream";
 		headers["chatgpt-account-id"] = accountId;
 		headers["OpenAI-Beta"] = "responses=experimental";
-		// Add session ID for caching (matching Python implementation)
 		if (sessionId) {
 			headers["session_id"] = sessionId;
 		}
@@ -137,6 +150,48 @@ export async function startUpstreamRequest(
 			console.log("=== UPSTREAM ERROR DEBUG ===");
 			console.log("Error status:", upstreamResponse.status);
 			console.log("Error body:", errorBody);
+
+			// Check if it's a 401 Unauthorized and we can refresh the token
+			if (upstreamResponse.status === 401 && env.OPENAI_CODEX_AUTH) {
+				console.log("🚨 AUTH DEBUG: Received 401 Unauthorized, attempting automatic token refresh...");
+
+				const refreshedTokens = await refreshAccessToken(env);
+				if (refreshedTokens) {
+					// Retry the request with the new token
+					console.log("🔄 AUTH DEBUG: Token refreshed, retrying request with new token...");
+
+					const headers: HeadersInit = {
+						"Content-Type": "application/json"
+					};
+
+					if (!isOllamaRequest) {
+						headers["Authorization"] = `Bearer ${refreshedTokens.access_token}`;
+						headers["Accept"] = "text/event-stream";
+						headers["chatgpt-account-id"] = refreshedTokens.account_id || accountId;
+						headers["OpenAI-Beta"] = "responses=experimental";
+						if (sessionId) {
+							headers["session_id"] = sessionId;
+						}
+					}
+
+					const retryResponse = await fetch(requestUrl, {
+						method: "POST",
+						headers: headers,
+						body: requestBody
+					});
+
+					if (retryResponse.ok) {
+						console.log("✅ AUTH DEBUG: Retry successful with refreshed token");
+						return { response: retryResponse, error: null };
+					} else {
+						console.log("❌ AUTH DEBUG: Retry failed even with refreshed token");
+						// Fall through to original error handling
+					}
+				} else {
+					console.log("❌ AUTH DEBUG: Token refresh failed, falling back to original error");
+				}
+			}
+
 			return {
 				response: null,
 				error: new Response(

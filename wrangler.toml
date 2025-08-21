@@ -4,15 +4,10 @@ compatibility_date = "2024-09-23"
 
 compatibility_flags = ["nodejs_compat"]
 
-# [vars]
-OLLAMA_API_URL = "http://localhost:11434" # Ollama API endpoint (set via wrangler secret put)
-
-[secrets]
-# Set these secrets via wrangler CLI:
-# wrangler secret put CHATGPT_LOCAL_CLIENT_ID
-# wrangler secret put CHATGPT_RESPONSES_URL
-# wrangler secret put OPENAI_CODEX_AUTH
-# wrangler secret put OLLAMA_API_URL
+# --- KV Namespaces ---
+kv_namespaces = [
+  { binding = "KV", id = "2e33dd7fc260405d906d61636cb82b61" }
+]
 
 
 # --- Local Development Configuration ---

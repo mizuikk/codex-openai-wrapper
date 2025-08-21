@@ -6,7 +6,7 @@ CHATGPT_LOCAL_CLIENT_ID=your_client_id_here
 CHATGPT_RESPONSES_URL=https://chatgpt.com/backend-api/codex/responses
 
 # Authentication - paste your auth.json content here (as a JSON string)
-# You can get this by running the original Python script and copying the auth.json content
+# You can get this by running the Codex login and copying the auth.json content
 OPENAI_CODEX_AUTH={"OPENAI_API_KEY": null, "tokens": {"id_token": "...", "access_token": "...", "refresh_token": "...", "account_id": "..."}, "last_refresh": "..."}
 # Ollama API endpoint (for local Ollama instance)
 OLLAMA_API_URL=http://localhost:11434

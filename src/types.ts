@@ -1,3 +1,17 @@
+export interface Env {
+	OPENAI_CODEX_AUTH: string;
+	CHATGPT_LOCAL_CLIENT_ID: string;
+	CHATGPT_RESPONSES_URL: string;
+	DEBUG_MODEL?: string;
+	VERBOSE?: string;
+	REASONING_EFFORT?: string;
+	REASONING_SUMMARY?: string;
+	REASONING_COMPAT?: string;
+	OLLAMA_API_URL: string;
+	KV?: KVNamespace; // For token storage
+	// Add other environment variables as needed
+}
+
 export type AuthTokens = {
 	OPENAI_API_KEY: string;
 	tokens: {
@@ -9,18 +23,6 @@ export type AuthTokens = {
 	last_refresh: string;
 };
 
-export interface Env {
-	OPENAI_CODEX_AUTH: string;
-	CHATGPT_LOCAL_CLIENT_ID: string;
-	CHATGPT_RESPONSES_URL: string;
-	DEBUG_MODEL?: string; // Add this line
-	VERBOSE?: string;
-	REASONING_EFFORT?: string;
-	REASONING_SUMMARY?: string;
-	REASONING_COMPAT?: string;
-	OLLAMA_API_URL: string; // Added for Ollama API URL
-	// Add other environment variables as needed
-}
 
 export type InputItem = {
 	type: string;
@@ -67,3 +69,29 @@ export type ToolDefinition = {
 };
 
 export type ToolChoice = "auto" | "none" | { type: string; function: { name: string } };
+
+export interface TokenData {
+  id_token: string;
+  access_token: string;
+  refresh_token: string;
+  account_id?: string;
+}
+
+export interface AuthDotJson {
+  OPENAI_API_KEY?: string;
+  tokens?: TokenData;
+  last_refresh?: string; // ISO 8601 timestamp
+}
+
+export interface RefreshRequest {
+  client_id: string;
+  grant_type: string;
+  refresh_token: string;
+  scope: string;
+}
+
+export interface RefreshResponse {
+  id_token: string;
+  access_token?: string;
+  refresh_token?: string;
+}

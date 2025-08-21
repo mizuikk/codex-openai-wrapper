@@ -9,13 +9,12 @@ import { getBaseInstructions } from "../instructions";
 const openai = new Hono<{ Bindings: Env }>();
 
 openai.post("/v1/chat/completions", async (c) => {
-	const verbose = c.env.VERBOSE === "true"; // Assuming VERBOSE is a string in Env
+	const verbose = c.env.VERBOSE === "true";
 	const reasoningEffort = c.env.REASONING_EFFORT || "minimal";
 	const reasoningSummary = c.env.REASONING_SUMMARY || "auto";
 	const reasoningCompat = c.env.REASONING_COMPAT || "think-tags";
 	const debugModel = c.env.DEBUG_MODEL;
 
-	// Verbose logging like Python version
 	if (verbose) {
 		try {
 			const bodyPreview = (await c.req.text()).substring(0, 2000);
@@ -251,7 +250,6 @@ openai.post("/v1/completions", async (c) => {
 	const reasoningEffort = c.env.REASONING_EFFORT || "minimal";
 	const reasoningSummary = c.env.REASONING_SUMMARY || "auto";
 
-	// Verbose logging like Python version
 	if (verbose) {
 		try {
 			const bodyPreview = (await c.req.text()).substring(0, 2000);
