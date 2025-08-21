@@ -95,7 +95,13 @@ export async function refreshAccessToken(env: Env): Promise<TokenData | null> {
 		});
 
 		if (!response.ok) {
-			console.error("Token refresh failed:", response.status);
+			const errorText = await response.text().catch(() => "Unable to read error response");
+			console.error("=== TOKEN REFRESH FAILURE ===");
+			console.error("Status:", response.status, response.statusText);
+			console.error("Response Headers:", Object.fromEntries(response.headers.entries()));
+			console.error("Error Body:", errorText);
+			console.error("Request Body:", JSON.stringify(refreshRequest, null, 2));
+			console.error("=============================");
 			return null;
 		}
 
@@ -124,7 +130,13 @@ export async function refreshAccessToken(env: Env): Promise<TokenData | null> {
 		}
 		return updatedTokens;
 	} catch (e) {
-		console.error("Error refreshing token:", e);
+		console.error("=== TOKEN REFRESH EXCEPTION ===");
+		console.error("Error:", e);
+		if (e instanceof Error) {
+			console.error("Error Message:", e.message);
+			console.error("Error Stack:", e.stack);
+		}
+		console.error("===============================");
 		return null;
 	}
 }

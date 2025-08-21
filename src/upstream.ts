@@ -125,7 +125,15 @@ export async function startUpstreamRequest(
 			const errorBody = (await upstreamResponse
 				.json()
 				.catch(() => ({ raw: upstreamResponse.statusText }))) as ErrorBody;
-			// Error response from upstream
+			
+			// Log complete error details for OpenAI failures
+			console.error("=== OPENAI API ERROR ===");
+			console.error("Status:", upstreamResponse.status, upstreamResponse.statusText);
+			console.error("URL:", requestUrl);
+			console.error("Headers:", Object.fromEntries(upstreamResponse.headers.entries()));
+			console.error("Error Body:", JSON.stringify(errorBody, null, 2));
+			console.error("Request Body:", requestBody);
+			console.error("========================");
 
 			// Check if it's a 401 Unauthorized and we can refresh the token
 			if (upstreamResponse.status === 401 && env.OPENAI_CODEX_AUTH) {
@@ -172,6 +180,18 @@ export async function startUpstreamRequest(
 
 		return { response: upstreamResponse, error: null };
 	} catch (e: unknown) {
+		// Log complete error details for fetch failures
+		console.error("=== UPSTREAM REQUEST FAILURE ===");
+		console.error("URL:", requestUrl);
+		console.error("Request Body:", requestBody);
+		console.error("Headers:", headers);
+		console.error("Error:", e);
+		if (e instanceof Error) {
+			console.error("Error Message:", e.message);
+			console.error("Error Stack:", e.stack);
+		}
+		console.error("================================");
+		
 		return {
 			response: null,
 			error: new Response(
