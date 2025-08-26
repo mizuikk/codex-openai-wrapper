@@ -762,7 +762,13 @@ npm run build       # Build the project
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This codebase is provided for personal use and self-hosting only.
+
+Redistribution of the codebase, whether in original or modified form, is not permitted without prior written consent from the author.
+
+You may fork and modify the repository solely for the purpose of running and self-hosting your own instance.
+
+Any other form of distribution, sublicensing, or commercial use is strictly prohibited unless explicitly authorized.
 
 ## 🙏 Acknowledgments
 
