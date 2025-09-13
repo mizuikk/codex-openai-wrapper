@@ -199,6 +199,17 @@ CHATGPT_RESPONSES_URL=https://chatgpt.com/backend-api/codex/responses
 # Optional: Ollama integration
 OLLAMA_API_URL=http://localhost:11434
 
+# Optional: Forward/Override headers sent upstream
+#   off       -> do not forward (default)
+#   safe      -> forward UA, Accept-Language, sec-ch-*, X-Forwarded-For, etc.
+#   list      -> forward only headers listed in FORWARD_CLIENT_HEADERS_LIST (values come from client request)
+#   override  -> use FORWARD_CLIENT_HEADERS_OVERRIDE (JSON map) to set final header values explicitly
+FORWARD_CLIENT_HEADERS_MODE=safe
+# For mode = list (comma-separated; names are case-insensitive)
+FORWARD_CLIENT_HEADERS_LIST=User-Agent,Accept-Language
+# For mode = override (JSON):
+# FORWARD_CLIENT_HEADERS_OVERRIDE={"User-Agent":"MyApp/1.2.3","Accept":"text/event-stream"}
+
 # Optional: Reasoning configuration
 REASONING_EFFORT=medium
 REASONING_SUMMARY=auto
@@ -763,6 +774,27 @@ When reasoning is enabled, responses include structured thinking:
 - Check if `CHATGPT_RESPONSES_URL` is accessible
 - Verify network connectivity from Cloudflare Workers
 - Ensure OAuth tokens have proper scopes
+
+**Upstream identifies a non-original client (fingerprint mismatch)**
+- By default the wrapper constructs its own upstream headers (e.g. `Accept: text/event-stream`, `OpenAI-Beta`, etc.).
+- To forward parts of the original client fingerprint (UA, Accept-Language, sec-ch-*), enable:
+  - `FORWARD_CLIENT_HEADERS_MODE=safe` (recommended), or
+  - `FORWARD_CLIENT_HEADERS_MODE=list` with `FORWARD_CLIENT_HEADERS_LIST`.
+- Security note: Authorization/Content-Type/OpenAI-Beta/Accept/session headers are never overridden.
+
+## 🔁 Client Header Forwarding
+
+The wrapper can propagate selected client headers to the upstream to preserve client characteristics while keeping protocol-critical headers controlled.
+
+- `FORWARD_CLIENT_HEADERS_MODE`:
+  - `off` (default): no client headers forwarded.
+  - `safe`: forwards an allowlist: `User-Agent`, `Accept-Language`, `sec-ch-*`, `X-Forwarded-For`, `X-Forwarded-Proto`, `X-Forwarded-Host`, `CF-Connecting-IP`.
+  - `list`: forwards only headers named in `FORWARD_CLIENT_HEADERS_LIST` (comma-separated). 值来源于客户端实际请求。协议关键头不被覆盖。
+  - `override`: 使用 `FORWARD_CLIENT_HEADERS_OVERRIDE`（JSON 映射）显式设置这些头的最终值；仅对提供的键生效，其余保持默认。
+- Hard-reserved header (never overridden): `Authorization`.
+- In non-override modes, these are not overridden: `Content-Type`, `Accept`, `OpenAI-Beta`, `chatgpt-account-id`, `session_id`.
+- SSE note: 在 default/safe/list 模式下，`Accept: text/event-stream` 会被强制设置；`override` 模式可修改 `Accept`，可能影响流式行为。
+
 
 ### Debug Endpoints
 

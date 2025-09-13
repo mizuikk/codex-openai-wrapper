@@ -48,6 +48,19 @@ export interface Env {
 	//   - "nested" (default): tools[].function.name (OpenAI Responses style)
 	//   - "flat": tools[].name (some third-party providers)
 	UPSTREAM_TOOLS_FORMAT?: "nested" | "flat";
+
+	// --- Client header forwarding controls ---
+	// Controls how incoming client headers are forwarded to the upstream.
+	//   - "off" (default): do not forward client headers
+	//   - "safe": forward a safe allowlist (UA, Accept-Language, sec-ch-* , X-Forwarded-For, etc.)
+	//   - "list": forward only headers explicitly listed in FORWARD_CLIENT_HEADERS_LIST
+	//   - "override": after building default headers, override final headers using explicit key-value map
+	FORWARD_CLIENT_HEADERS_MODE?: "off" | "safe" | "list" | "override";
+	// When mode = "override": JSON string mapping header names to values, e.g.
+	// '{"User-Agent":"MyApp/1.0","Accept":"text/event-stream"}'
+	FORWARD_CLIENT_HEADERS_OVERRIDE?: string;
+	// Comma-separated header names (case-insensitive) used when mode = "list"
+	FORWARD_CLIENT_HEADERS_LIST?: string;
 }
 
 export type AuthTokens = {
