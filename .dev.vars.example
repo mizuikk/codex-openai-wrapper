@@ -50,3 +50,8 @@ VERBOSE=false            # Options: true, false
 # Optional: customize header/scheme (defaults: Authorization / Bearer)
 # UPSTREAM_AUTH_HEADER=Authorization
 # UPSTREAM_AUTH_SCHEME=Bearer
+
+# Optional: tools schema compatibility (default: nested)
+# nested -> tools: [{ type: 'function', function: { name, ... } }]
+# flat   -> tools: [{ type: 'function', name, ... }]
+# UPSTREAM_TOOLS_FORMAT=nested

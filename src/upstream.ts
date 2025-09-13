@@ -41,7 +41,54 @@ export async function startUpstreamRequest(
 		ollamaPayload?: OllamaPayload; // Added for Ollama specific payloads
 	}
 ): Promise<{ response: Response | null; error: Response | null }> {
-	const { instructions, tools, toolChoice, parallelToolCalls, reasoningParam } = options || {};
+    const { instructions, tools, toolChoice, parallelToolCalls, reasoningParam } = options || {};
+
+    // Helper: format tools for upstream wire schema differences
+    function formatToolsForUpstream(
+        toolsIn: Tool[] | undefined,
+        format: string | undefined
+    ): Array<Record<string, unknown>> {
+        const arr = Array.isArray(toolsIn) ? toolsIn : [];
+        const mode = (format || "nested").toLowerCase();
+        if (mode !== "flat") {
+            // Default: OpenAI Responses style
+            return arr as unknown as Array<Record<string, unknown>>;
+        }
+        // Flatten: { type: 'function', function: { name, description, parameters } }
+        //   -> { type: 'function', name, description, parameters }
+        const out: Array<Record<string, unknown>> = [];
+        for (const t of arr) {
+            try {
+                if (!t || t.type !== "function") continue;
+                const fn = (t as Tool).function as {
+                    name?: string;
+                    description?: string;
+                    parameters?: Record<string, unknown>;
+                };
+                if (!fn || typeof fn.name !== "string" || !fn.name) continue;
+                out.push({
+                    type: "function",
+                    name: fn.name,
+                    ...(fn.description ? { description: fn.description } : {}),
+                    ...(fn.parameters ? { parameters: fn.parameters } : {})
+                });
+            } catch {}
+        }
+        return out;
+    }
+
+    // Helper: format tool_choice for flat schema if needed
+    function formatToolChoiceForUpstream(
+        choice: ToolChoice | undefined,
+        format: string | undefined
+    ): ToolChoice | { type: string; name: string } | "auto" | "none" | undefined {
+        const mode = (format || "nested").toLowerCase();
+        if (!choice || mode !== "flat") return choice;
+        if (typeof choice === "object" && (choice as any).type && (choice as any).function?.name) {
+            return { type: (choice as any).type, name: (choice as any).function.name } as any;
+        }
+        return choice;
+    }
 
 	const { accessToken, accountId } = await getRefreshedAuth(env);
 
@@ -89,25 +136,26 @@ export async function startUpstreamRequest(
 
 	const baseInstructions = await getBaseInstructions();
 
-	const requestBody = isOllamaRequest
-		? JSON.stringify(options?.ollamaPayload)
-		: JSON.stringify({
-				model: normalizeModelName(model, env.DEBUG_MODEL),
-				instructions: instructions || baseInstructions, // Use fetched instructions
-				input: inputItems,
-				tools: tools || [],
-				tool_choice:
-					(toolChoice && (toolChoice === "auto" || toolChoice === "none" || typeof toolChoice === "object")) ||
-					toolChoice === undefined
-						? toolChoice || "auto"
-						: "auto",
-				parallel_tool_calls: parallelToolCalls || false,
-				store: false,
-				stream: true,
-				include: include,
-				prompt_cache_key: sessionId,
-				...(reasoningParam && { reasoning: reasoningParam })
-			});
+    const requestBody = isOllamaRequest
+        ? JSON.stringify(options?.ollamaPayload)
+        : JSON.stringify({
+                model: normalizeModelName(model, env.DEBUG_MODEL),
+                instructions: instructions || baseInstructions, // Use fetched instructions
+                input: inputItems,
+                tools: formatToolsForUpstream(tools, (env as any).UPSTREAM_TOOLS_FORMAT),
+                tool_choice:
+                    (formatToolChoiceForUpstream(toolChoice, (env as any).UPSTREAM_TOOLS_FORMAT) &&
+                        (toolChoice === "auto" || toolChoice === "none" || typeof toolChoice === "object")) ||
+                    toolChoice === undefined
+                        ? formatToolChoiceForUpstream(toolChoice, (env as any).UPSTREAM_TOOLS_FORMAT) || "auto"
+                        : "auto",
+                parallel_tool_calls: parallelToolCalls || false,
+                store: false,
+                stream: true,
+                include: include,
+                prompt_cache_key: sessionId,
+                ...(reasoningParam && { reasoning: reasoningParam })
+            });
 
 	const headers: HeadersInit = {
 		"Content-Type": "application/json"

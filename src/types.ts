@@ -43,6 +43,11 @@ export interface Env {
 	// Header name and scheme used for upstream auth (defaults: Authorization / Bearer)
 	UPSTREAM_AUTH_HEADER?: string;
 	UPSTREAM_AUTH_SCHEME?: string;
+
+	// Optional: wire schema variant for tools/tool_choice
+	//   - "nested" (default): tools[].function.name (OpenAI Responses style)
+	//   - "flat": tools[].name (some third-party providers)
+	UPSTREAM_TOOLS_FORMAT?: "nested" | "flat";
 }
 
 export type AuthTokens = {

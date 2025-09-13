@@ -66,6 +66,7 @@ Configure credentials once here without scrolling around. There are three layers
   - `UPSTREAM_AUTH_MODE=apikey_auth_json` (reads key from `OPENAI_CODEX_AUTH[UPSTREAM_AUTH_ENV_KEY | default OPENAI_API_KEY]`)
   - `UPSTREAM_AUTH_MODE=apikey_env` (uses `UPSTREAM_API_KEY`)
 - Optional header customization: `UPSTREAM_AUTH_HEADER` (default Authorization), `UPSTREAM_AUTH_SCHEME` (default Bearer)
+ - Optional tools schema: `UPSTREAM_TOOLS_FORMAT` (`nested` | `flat`). Use `flat` if your upstream requires `tools[0].name` at the top level.
 - Cloudflare Workers (example: apikey_env):
   - `wrangler secret put UPSTREAM_RESPONSES_URL` → `https://example.com/v1/responses`
   - `wrangler secret put UPSTREAM_AUTH_MODE` → `apikey_env`
