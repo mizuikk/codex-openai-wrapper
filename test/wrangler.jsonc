@@ -1,6 +1,6 @@
 // Minimal config for Vitest Cloudflare Workers pool
 {
   "name": "codex-openai-wrapper-test",
-  "main": "src/index.ts",
+  "main": "../src/index.ts",
   "compatibility_date": "2024-09-23"
 }
