@@ -159,9 +159,12 @@ export async function sseTranslateChat(
 									sawAnySummary = true;
 								}
 							}
-						} else if (kind === "response.reasoning_summary_text.delta" || kind === "response.reasoning_text.delta") {
-							const deltaTxt = evt.delta || "";
-							if (reasoningCompat === "o3") {
+                    } else if (kind === "response.reasoning_summary_text.delta" || kind === "response.reasoning_text.delta") {
+                        const deltaTxt = evt.delta || "";
+                        // Hide mode: swallow all reasoning deltas
+                        if (reasoningCompat === "hide") {
+                            // Do nothing; skip streaming any reasoning content
+                        } else if (reasoningCompat === "o3") {
 								if (kind === "response.reasoning_summary_text.delta" && pendingSummaryParagraph) {
 									const nlChunk = {
 										id: responseId,
@@ -193,7 +196,7 @@ export async function sseTranslateChat(
 									]
 								};
 								controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(chunk)}\n\n`));
-							} else if (reasoningCompat === "think-tags") {
+                        } else if (reasoningCompat === "think-tags") {
 								if (!thinkOpen && !thinkClosed) {
 									const openChunk = {
 										id: responseId,

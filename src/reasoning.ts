@@ -60,6 +60,12 @@ export function applyReasoningToMessage(
         compat = "think-tags";
     }
 
+    // Hide mode: do not include any reasoning content in the final message.
+    // No <think> tags and no reasoning fields are added.
+    if (compat === "hide") {
+        return message;
+    }
+
     // OpenAI Reasoning API JSON format: put reasoning as a structured content array
     if (compat === "o3") {
         const rtxtParts: string[] = [];
@@ -90,17 +96,17 @@ export function applyReasoningToMessage(
 
     // Default to think-tags compatibility
     const rtxtParts: string[] = [];
-	if (typeof reasoningSummaryText === "string" && reasoningSummaryText.trim()) {
-		rtxtParts.push(reasoningSummaryText);
-	}
-	if (typeof reasoningFullText === "string" && reasoningFullText.trim()) {
-		rtxtParts.push(reasoningFullText);
-	}
-	const rtxt = rtxtParts.filter((p) => p).join("\n\n");
-	if (rtxt) {
-		const thinkBlock = `<think>${rtxt}</think>`;
-		const contentText = message.content || "";
-		message.content = thinkBlock + (typeof contentText === "string" ? contentText : "");
-	}
-	return message;
+    if (typeof reasoningSummaryText === "string" && reasoningSummaryText.trim()) {
+        rtxtParts.push(reasoningSummaryText);
+    }
+    if (typeof reasoningFullText === "string" && reasoningFullText.trim()) {
+        rtxtParts.push(reasoningFullText);
+    }
+    const rtxt = rtxtParts.filter((p) => p).join("\n\n");
+    if (rtxt) {
+        const thinkBlock = `<think>${rtxt}</think>`;
+        const contentText = message.content || "";
+        message.content = thinkBlock + (typeof contentText === "string" ? contentText : "");
+    }
+    return message;
 }

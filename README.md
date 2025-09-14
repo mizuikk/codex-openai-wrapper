@@ -294,7 +294,7 @@ The service will be available at `http://localhost:8787`
 |----------|---------|-------------|
 | `REASONING_EFFORT` | `minimal` | Reasoning effort level: `minimal`, `low`, `medium`, `high` |
 | `REASONING_SUMMARY` | `auto` | Summary mode: `auto`, `concise`, `detailed`, `none` (aliases: `on` = `concise`, `off` = `none`) |
-| `REASONING_COMPAT` | `think-tags` | Output compatibility: `think-tags`, `standard`, `o3`, `legacy`, `current` |
+| `REASONING_COMPAT` | `think-tags` | Output compatibility: `think-tags`, `standard`, `o3`, `legacy`, `current`, `hide` (use `hide` to suppress reasoning entirely) |
 
 #### Integration & Tools
 
@@ -714,8 +714,10 @@ Aliases: `on` = `concise`, `off` = `none`.
 - **`think-tags`**: Wrap reasoning in `<think>` tags for DeepSeek R1-style output
 - **`standard` / `legacy` / `current`**: Use plain string fields: `message.reasoning_summary` and `message.reasoning`
 - **`o3`**: Use structured field: `message.reasoning = { content: [{ type: "text", text: "..." }] }`
+- **`hide`**: Suppress all reasoning; only final assistant content is returned
 
 Note: The wrapper normalizes `REASONING_COMPAT` values (trims + lowercases), so inputs like `Standard` or `  o3  ` are accepted.
+- **`hide`**: Suppress all reasoning; only final assistant content is returned
 
 ### Configuration Examples
 
