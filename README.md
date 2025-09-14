@@ -758,6 +758,36 @@ O3 structured (SSE delta):
 { "object": "chat.completion.chunk", "choices": [{ "delta": { "reasoning": { "content": [{ "type": "text", "text": "..." }] } }, "finish_reason": null }] }
 ```
 
+### Non‑Streaming vs Streaming with `think-tags`
+
+When `REASONING_COMPAT=think-tags` and `REASONING_SUMMARY != none` (e.g., `auto`), the wrapper surfaces reasoning differently depending on whether you request streaming.
+
+- Non‑streaming (`stream=false`): The wrapper prepends a single `<think>…</think>` block to `choices[0].message.content`. This block contains the reasoning summary and the full reasoning joined with a blank line. After the block, the normal assistant answer follows. This behavior is implemented in `applyReasoningToMessage()`.
+
+- Streaming (`stream=true`): On the first reasoning delta the stream emits `<think>`, then streams reasoning deltas inside the tag. Immediately before the first visible answer delta (`response.output_text.delta`), the stream emits `</think>` and continues with the user‑visible answer. This behavior is implemented in `sseTranslateChat()`.
+
+- How to control it:
+  - Hide reasoning entirely: set `REASONING_COMPAT=hide`, or send a request override `{ "reasoning": { "summary": "none" } }`.
+  - Keep reasoning without tags: use `REASONING_COMPAT=standard` (or `legacy`/`current`) so reasoning appears in `message.reasoning_summary` / `message.reasoning` fields instead of being inlined.
+  - Keep tags but shorten content: set `REASONING_SUMMARY=concise`, or request `{ "reasoning": { "summary": "concise" } }`.
+
+Example (non‑streaming) response snippet:
+
+```json
+{
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "<think>…summary\n\n…full</think>Final answer …"
+      },
+      "finish_reason": "stop"
+    }
+  ]
+}
+```
+
 ## 🚨 Troubleshooting
 
 ### Common Issues
