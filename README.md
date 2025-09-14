@@ -9,7 +9,7 @@ Transform OpenAI's Codex models into OpenAI-compatible endpoints using Cloudflar
 - 🔐 **OAuth2 Authentication** - Uses your OpenAI account credentials via Codex CLI
 - 🎯 **OpenAI-Compatible API** - Drop-in replacement for OpenAI endpoints
 - 📚 **OpenAI SDK Support** - Works with official OpenAI SDKs and libraries
-- 🧠 **Advanced Reasoning** - Configurable reasoning effort with `think-tags` compatibility
+- 🧠 **Advanced Reasoning** - Configurable effort with multiple compatibility modes (`think-tags`, `standard`, `o3`)
 - 🛡️ **API Key Security** - Optional authentication layer for endpoint access
 - 🌐 **Third-party Integration** - Compatible with Open WebUI, Cline, and more
 - ⚡ **Cloudflare Workers** - Global edge deployment with low latency
@@ -293,8 +293,8 @@ The service will be available at `http://localhost:8787`
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `REASONING_EFFORT` | `minimal` | Reasoning effort level: `minimal`, `low`, `medium`, `high` |
-| `REASONING_SUMMARY` | `auto` | Reasoning summary mode: `auto`, `on`, `off` |
-| `REASONING_COMPAT` | `think-tags` | Reasoning output format: `think-tags`, `standard` |
+| `REASONING_SUMMARY` | `auto` | Summary mode: `auto`, `concise`, `detailed`, `none` (aliases: `on` = `concise`, `off` = `none`) |
+| `REASONING_COMPAT` | `think-tags` | Output compatibility: `think-tags`, `standard`, `o3`, `legacy`, `current` |
 
 #### Integration & Tools
 
@@ -704,11 +704,18 @@ The wrapper provides sophisticated reasoning capabilities with multiple configur
 
 #### Summary Options
 - **`auto`**: Automatically decide when to include reasoning summaries
-- **`on`**: Always include reasoning summaries in responses
-- **`off`**: Never include reasoning summaries
+- **`concise`**: Always include short summaries
+- **`detailed`**: Include more verbose reasoning summaries
+- **`none`**: Never include summaries
+
+Aliases: `on` = `concise`, `off` = `none`.
 
 #### Compatibility Formats
 - **`think-tags`**: Wrap reasoning in `<think>` tags for DeepSeek R1-style output
+- **`standard` / `legacy` / `current`**: Use plain string fields: `message.reasoning_summary` and `message.reasoning`
+- **`o3`**: Use structured field: `message.reasoning = { content: [{ type: "text", text: "..." }] }`
+
+Note: The wrapper normalizes `REASONING_COMPAT` values (trims + lowercases), so inputs like `Standard` or `  o3  ` are accepted.
 
 ### Configuration Examples
 
@@ -731,24 +738,22 @@ REASONING_COMPAT=think-tags
 }
 ```
 
-### Reasoning Output Format
+### Reasoning Output Formats (examples)
 
-When reasoning is enabled, responses include structured thinking:
-
+Think‑tags (SSE delta):
 ```json
-{
-  "id": "chatcmpl-123",
-  "object": "chat.completion.chunk",
-  "created": 1708976947,
-  "model": "gpt-4",
-  "choices": [{
-    "index": 0,
-    "delta": {
-      "content": "<think>\nLet me break this problem down step by step...\n</think>\n\nTo solve this equation..."
-    },
-    "finish_reason": null
-  }]
-}
+{ "object": "chat.completion.chunk", "choices": [{ "delta": { "content": "<think>" }, "finish_reason": null }] }
+```
+
+Standard (SSE delta):
+```json
+{ "object": "chat.completion.chunk", "choices": [{ "delta": { "reasoning_summary": "..." }, "finish_reason": null }] }
+{ "object": "chat.completion.chunk", "choices": [{ "delta": { "reasoning": "..." }, "finish_reason": null }] }
+```
+
+O3 structured (SSE delta):
+```json
+{ "object": "chat.completion.chunk", "choices": [{ "delta": { "reasoning": { "content": [{ "type": "text", "text": "..." }] } }, "finish_reason": null }] }
 ```
 
 ## 🚨 Troubleshooting
@@ -789,10 +794,15 @@ The wrapper can propagate selected client headers to the upstream to preserve cl
 - `FORWARD_CLIENT_HEADERS_MODE`:
   - `off` (default): no client headers forwarded.
   - `safe`: forwards an allowlist: `User-Agent`, `Accept-Language`, `sec-ch-*`, `X-Forwarded-For`, `X-Forwarded-Proto`, `X-Forwarded-Host`, `CF-Connecting-IP`.
-  - `list`: forwards only headers named in `FORWARD_CLIENT_HEADERS_LIST` (comma-separated). 值来源于客户端实际请求。协议关键头不被覆盖。
-  - `override`: 使用 `FORWARD_CLIENT_HEADERS_OVERRIDE`（JSON 映射）显式设置这些头的最终值；仅对提供的键生效，其余保持默认。
-- Hard-reserved header (never overridden): `Authorization`.
-- In non-override modes, these are not overridden: `Content-Type`, `Accept`, `OpenAI-Beta`, `chatgpt-account-id`, `session_id`.
+  - `list`: forwards only headers named in `FORWARD_CLIENT_HEADERS_LIST` (comma-separated). Values are taken from the incoming client request. Protocol‑critical headers are not overridden.
+  - `override`: use `FORWARD_CLIENT_HEADERS_OVERRIDE` (JSON map) to explicitly set final header values; only provided keys are applied, others keep defaults.
+  - Hard-reserved header (never overridden): `Authorization`.
+  - In non-override modes, these are not overridden: `Content-Type`, `Accept`, `OpenAI-Beta`, `chatgpt-account-id`, `session_id`.
+
+### Dev server binds only to 127.0.0.1
+- The dev server should bind to `0.0.0.0` via `wrangler.toml` `[dev] ip = "0.0.0.0"`.
+- Ensure there is no `wrangler.jsonc` at the repository root (tests use `test/wrangler.jsonc` to avoid overriding dev config).
+- You can also force the address: `npx wrangler dev --ip 0.0.0.0`.
 - SSE note: 在 default/safe/list 模式下，`Accept: text/event-stream` 会被强制设置；`override` 模式可修改 `Accept`，可能影响流式行为。
 
 
