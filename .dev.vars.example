@@ -55,3 +55,15 @@ VERBOSE=false            # Options: true, false
 # nested -> tools: [{ type: 'function', function: { name, ... } }]
 # flat   -> tools: [{ type: 'function', name, ... }]
 # UPSTREAM_TOOLS_FORMAT=nested
+
+# ------------------
+# Client header forwarding (optional)
+# ------------------
+# Controls forwarding of client headers to upstream to preserve client characteristics
+# off       -> do not forward (default)
+# safe      -> forward UA, Accept-Language, sec-ch-*, X-Forwarded-For, etc.
+# list      -> forward only headers listed below (comma-separated); values come from client request
+# override  -> set final header values from JSON map below
+# FORWARD_CLIENT_HEADERS_MODE=off
+# FORWARD_CLIENT_HEADERS_LIST=User-Agent,Accept-Language
+# FORWARD_CLIENT_HEADERS_OVERRIDE={"User-Agent":"MyApp/1.2.3","Accept":"text/event-stream"}

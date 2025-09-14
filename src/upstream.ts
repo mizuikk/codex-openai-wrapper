@@ -39,6 +39,7 @@ export async function startUpstreamRequest(
 		reasoningParam?: ReasoningParam;
 		ollamaPath?: string; // Added for Ollama specific paths
 		ollamaPayload?: OllamaPayload; // Added for Ollama specific payloads
+		forwardedClientHeaders?: Headers; // Optional: original client headers for selective forwarding
 	}
 ): Promise<{ response: Response | null; error: Response | null }> {
     const { instructions, tools, toolChoice, parallelToolCalls, reasoningParam } = options || {};
@@ -161,6 +162,110 @@ export async function startUpstreamRequest(
 		"Content-Type": "application/json"
 	};
 
+	// Optionally forward a subset of client headers to the upstream for
+	// fingerprint/feature transparency, without compromising protocol headers.
+		(function applyClientHeaderForwarding() {
+			const mode = (env.FORWARD_CLIENT_HEADERS_MODE || "off").toLowerCase();
+			if (!options?.forwardedClientHeaders || mode === "off") return;
+
+		// Always treat header names as case-insensitive
+		const RESERVED = new Set([
+			"authorization",
+			"content-type",
+			"accept",
+			"openai-beta",
+			"chatgpt-account-id",
+			"session_id"
+		]);
+
+		// Safe allowlist based on common client fingerprint headers
+		const SAFE_DEFAULT = [
+			"user-agent",
+			"accept-language",
+			"sec-ch-ua",
+			"sec-ch-ua-mobile",
+			"sec-ch-ua-platform",
+			"sec-ch-ua-arch",
+			"sec-ch-ua-model",
+			"x-forwarded-for",
+			"x-forwarded-proto",
+			"x-forwarded-host",
+			"cf-connecting-ip"
+		];
+
+			let passList: string[] = [];
+			if (mode === "safe") {
+				passList = SAFE_DEFAULT;
+			} else if (mode === "list") {
+				const raw = env.FORWARD_CLIENT_HEADERS_LIST || "";
+				passList = raw
+					.split(",")
+					.map((s) => s.trim().toLowerCase())
+					.filter(Boolean);
+			}
+
+			if (!passList.length) return;
+
+		const src = options.forwardedClientHeaders;
+		for (const name of passList) {
+			if (RESERVED.has(name)) continue;
+			const val = src.get(name);
+			if (typeof val === "string" && val.length > 0) {
+				(headers as Record<string, string>)[name] = val;
+			}
+			}
+
+			// If X-Forwarded-For missing but cf-connecting-ip is present, synthesize it.
+			if (!("x-forwarded-for" in (headers as Record<string, string>))) {
+				const connectingIp = src.get("cf-connecting-ip") || src.get("x-real-ip");
+				if (connectingIp) {
+					(headers as Record<string, string>)["x-forwarded-for"] = connectingIp;
+				}
+			}
+		})();
+
+	// After setting authentication and protocol headers, optionally override
+	// final headers from the client using a configured list. Authorization
+	// is never overridden to avoid breaking upstream auth.
+function applyOverrideClientHeaders() {
+		const mode = (env.FORWARD_CLIENT_HEADERS_MODE || "off").toLowerCase();
+		if (mode !== "override") return;
+		let map: Record<string, unknown> | null = null;
+		try {
+			if (env.FORWARD_CLIENT_HEADERS_OVERRIDE && env.FORWARD_CLIENT_HEADERS_OVERRIDE.trim()) {
+				map = JSON.parse(env.FORWARD_CLIENT_HEADERS_OVERRIDE) as Record<string, unknown>;
+			}
+		} catch (e) {
+			console.warn("[header-override] Invalid JSON in FORWARD_CLIENT_HEADERS_OVERRIDE:", e);
+			map = null;
+		}
+		if (!map) return;
+
+		const lower = (s: string) => s.toLowerCase();
+		const setCanonical = (name: string, value: string) => {
+			const n = lower(name);
+			let key = name;
+			if (n === "accept") key = "Accept";
+			else if (n === "content-type") key = "Content-Type";
+			else if (n === "authorization") key = "Authorization";
+			else if (n === "openai-beta") key = "OpenAI-Beta";
+			else if (n === "chatgpt-account-id") key = "chatgpt-account-id";
+			else if (n === "session_id") key = "session_id";
+			(headers as Record<string, string>)[key] = value;
+		};
+
+		for (const [name, rawVal] of Object.entries(map)) {
+			if (lower(name) === "authorization") continue; // hard-reserved
+			if (rawVal == null) continue;
+			const val = String(rawVal);
+			if (val.length === 0) continue;
+			setCanonical(name, val);
+			if (lower(name) === "accept" && val.toLowerCase() !== "text/event-stream") {
+				console.warn("[header-override] Accept changed; SSE behavior may differ:", val);
+			}
+		}
+	}
+
 	if (!isOllamaRequest) {
 		// Pre-validate API key in apikey_* modes for clearer errors
 		if (authMode === "apikey_env") {
@@ -229,18 +334,22 @@ export async function startUpstreamRequest(
 		}
 
 		if (sendAuth) {
-			headers[authHeaderName] = sendAuth;
+			(headers as Record<string, string>)[authHeaderName] = sendAuth;
 		}
 
-		headers["Accept"] = "text/event-stream";
+		// Keep protocol-critical header to ensure SSE behavior regardless of forwarding
+		(headers as Record<string, string>)["Accept"] = "text/event-stream";
 		if (accountId) {
-			headers["chatgpt-account-id"] = accountId;
+			(headers as Record<string, string>)["chatgpt-account-id"] = accountId;
 		}
-		headers["OpenAI-Beta"] = "responses=experimental";
+		(headers as Record<string, string>)["OpenAI-Beta"] = "responses=experimental";
 		if (sessionId) {
-			headers["session_id"] = sessionId;
+			(headers as Record<string, string>)["session_id"] = sessionId;
 		}
 	}
+
+	// Apply final override, if configured
+	applyOverrideClientHeaders();
 
 	try {
 		const upstreamResponse = await fetch(requestUrl, {
@@ -281,12 +390,47 @@ export async function startUpstreamRequest(
 						const authScheme = (env.UPSTREAM_AUTH_SCHEME || "Bearer").trim();
 						headers[authHeaderName] = `${authScheme} ${refreshedTokens.access_token}`;
 						headers["Accept"] = "text/event-stream";
-						headers["chatgpt-account-id"] = refreshedTokens.account_id || accountId;
+							const acc = refreshedTokens.account_id || accountId;
+							if (typeof acc === "string" && acc) {
+								(headers as Record<string, string>)["chatgpt-account-id"] = acc;
+							}
 						headers["OpenAI-Beta"] = "responses=experimental";
 						if (sessionId) {
 							headers["session_id"] = sessionId;
 						}
 					}
+
+					// Apply final override to retry headers as well (if configured)
+(function applyOverrideOnRetry() {
+						const mode = (env.FORWARD_CLIENT_HEADERS_MODE || "off").toLowerCase();
+						if (mode !== "override") return;
+						let map: Record<string, unknown> | null = null;
+						try {
+							if (env.FORWARD_CLIENT_HEADERS_OVERRIDE && env.FORWARD_CLIENT_HEADERS_OVERRIDE.trim()) {
+								map = JSON.parse(env.FORWARD_CLIENT_HEADERS_OVERRIDE) as Record<string, unknown>;
+							}
+						} catch {}
+						if (!map) return;
+						const lower = (s: string) => s.toLowerCase();
+						const setCanonical = (name: string, value: string) => {
+							const n = lower(name);
+							let key = name;
+							if (n === "accept") key = "Accept";
+							else if (n === "content-type") key = "Content-Type";
+							else if (n === "authorization") key = "Authorization";
+							else if (n === "openai-beta") key = "OpenAI-Beta";
+							else if (n === "chatgpt-account-id") key = "chatgpt-account-id";
+							else if (n === "session_id") key = "session_id";
+							(headers as Record<string, string>)[key] = value;
+						};
+						for (const [name, rawVal] of Object.entries(map)) {
+							if (lower(name) === "authorization") continue;
+							if (rawVal == null) continue;
+							const val = String(rawVal);
+							if (val.length === 0) continue;
+							setCanonical(name, val);
+						}
+					})();
 
 					const retryResponse = await fetch(requestUrl, {
 						method: "POST",
