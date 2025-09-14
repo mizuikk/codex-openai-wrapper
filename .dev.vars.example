@@ -19,8 +19,8 @@ OLLAMA_API_URL=http://localhost:11434
 # Optional debugging and reasoning settings
 DEBUG_MODEL=
 REASONING_EFFORT=medium  # Options: minimal, low, medium, high
-REASONING_SUMMARY=auto   # Options: auto, on, off
-REASONING_COMPAT=think-tags  # Options: think-tags, standard
+REASONING_SUMMARY=auto   # Options: auto, concise, detailed, none (on=concise, off=none)
+REASONING_COMPAT=think-tags  # Options: think-tags, standard, o3, legacy, current
 VERBOSE=false            # Options: true, false
 
 # ------------------

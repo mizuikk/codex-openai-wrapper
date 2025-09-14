@@ -85,8 +85,8 @@ The service will be available at `http://localhost:8787`
 | `CHATGPT_RESPONSES_URL` | OpenAI API endpoint URL | ✅ | - |
 | `OPENAI_CODEX_AUTH` | JSON string with access tokens | ✅ | - |
 | `REASONING_EFFORT` | AI reasoning depth: `minimal`, `low`, `medium`, `high` | ❌ | `minimal` |
-| `REASONING_SUMMARY` | Summary mode: `auto`, `on`, `off` | ❌ | `auto` |
-| `REASONING_COMPAT` | Compatibility mode: `think-tags`, `standard` | ❌ | `think-tags` |
+| `REASONING_SUMMARY` | Summary mode: `auto`, `concise`, `detailed`, `none` (aliases: `on`=concise, `off`=none) | ❌ | `auto` |
+| `REASONING_COMPAT` | Compatibility mode: `think-tags`, `standard`, `o3`, `legacy`, `current` | ❌ | `think-tags` |
 | `VERBOSE` | Enable detailed logging: `true`, `false` | ❌ | `false` |
 | `DEBUG_MODEL` | Override model for debugging | ❌ | - |
 
