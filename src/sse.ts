@@ -18,13 +18,20 @@ interface SseEvent {
 }
 
 export async function sseTranslateChat(
-	upstreamResponse: Response,
-	model: string,
-	created: number,
-	verbose: boolean = false,
-	reasoningCompat: string = "think-tags"
+    upstreamResponse: Response,
+    model: string,
+    created: number,
+    verbose: boolean = false,
+    reasoningCompat: string = "think-tags"
 ): Promise<ReadableStream> {
-	const reader = upstreamResponse.body?.getReader();
+    // Normalize compatibility mode once for the whole stream
+    try {
+        reasoningCompat = (reasoningCompat || "think-tags").trim().toLowerCase();
+    } catch {
+        reasoningCompat = "think-tags";
+    }
+
+    const reader = upstreamResponse.body?.getReader();
 	if (!reader) {
 		throw new Error("Upstream response body is not readable.");
 	}

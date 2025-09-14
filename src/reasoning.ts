@@ -48,44 +48,48 @@ interface ChatMessage {
 }
 
 export function applyReasoningToMessage(
-	message: ChatMessage,
-	reasoningSummaryText: string,
-	reasoningFullText: string,
-	compat: string
+    message: ChatMessage,
+    reasoningSummaryText: string,
+    reasoningFullText: string,
+    compat: string
 ): ChatMessage {
-	try {
-		compat = (compat || "think-tags").trim().toLowerCase();
-	} catch {
-		compat = "think-tags";
-	}
+    try {
+        // Normalize compatibility mode to avoid case/whitespace issues
+        compat = (compat || "think-tags").trim().toLowerCase();
+    } catch {
+        compat = "think-tags";
+    }
 
-	if (compat === "o3") {
-		const rtxtParts: string[] = [];
-		if (typeof reasoningSummaryText === "string" && reasoningSummaryText.trim()) {
-			rtxtParts.push(reasoningSummaryText);
-		}
-		if (typeof reasoningFullText === "string" && reasoningFullText.trim()) {
-			rtxtParts.push(reasoningFullText);
-		}
-		const rtxt = rtxtParts.filter((p) => p).join("\n\n");
-		if (rtxt) {
-			message.reasoning = { content: [{ type: "text", text: rtxt }] };
-		}
-		return message;
-	}
+    // OpenAI Reasoning API JSON format: put reasoning as a structured content array
+    if (compat === "o3") {
+        const rtxtParts: string[] = [];
+        if (typeof reasoningSummaryText === "string" && reasoningSummaryText.trim()) {
+            rtxtParts.push(reasoningSummaryText);
+        }
+        if (typeof reasoningFullText === "string" && reasoningFullText.trim()) {
+            rtxtParts.push(reasoningFullText);
+        }
+        const rtxt = rtxtParts.filter((p) => p).join("\n\n");
+        if (rtxt) {
+            message.reasoning = { content: [{ type: "text", text: rtxt }] };
+        }
+        return message;
+    }
 
-	if (compat === "legacy" || compat === "current") {
-		if (reasoningSummaryText) {
-			message.reasoning_summary = reasoningSummaryText;
-		}
-		if (reasoningFullText) {
-			message.reasoning = reasoningFullText;
-		}
-		return message;
-	}
+    // Standard/legacy OpenAI Chat Completions compatibility:
+    // expose `reasoning_summary` and `reasoning` as plain strings
+    if (compat === "legacy" || compat === "current" || compat === "standard") {
+        if (reasoningSummaryText) {
+            message.reasoning_summary = reasoningSummaryText;
+        }
+        if (reasoningFullText) {
+            message.reasoning = reasoningFullText;
+        }
+        return message;
+    }
 
-	// Default to think-tags compatibility
-	const rtxtParts: string[] = [];
+    // Default to think-tags compatibility
+    const rtxtParts: string[] = [];
 	if (typeof reasoningSummaryText === "string" && reasoningSummaryText.trim()) {
 		rtxtParts.push(reasoningSummaryText);
 	}
