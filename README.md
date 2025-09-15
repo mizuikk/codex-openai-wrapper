@@ -9,7 +9,7 @@ Transform OpenAI's Codex models into OpenAI-compatible endpoints using Cloudflar
 - 🔐 **OAuth2 Authentication** - Uses your OpenAI account credentials via Codex CLI
 - 🎯 **OpenAI-Compatible API** - Drop-in replacement for OpenAI endpoints
 - 📚 **OpenAI SDK Support** - Works with official OpenAI SDKs and libraries
-- 🧠 **Advanced Reasoning** - Configurable effort with multiple compatibility modes (`think-tags`, `standard`, `o3`)
+- 🧠 **Advanced Reasoning** - Configurable effort with multiple compatibility modes (`think-tags`, `standard`, `o3`, `r1`)
 - 🛡️ **API Key Security** - Optional authentication layer for endpoint access
 - 🌐 **Third-party Integration** - Compatible with Open WebUI, Cline, and more
 - ⚡ **Cloudflare Workers** - Global edge deployment with low latency
@@ -711,13 +711,13 @@ The wrapper provides sophisticated reasoning capabilities with multiple configur
 Aliases: `on` = `concise`, `off` = `none`.
 
 #### Compatibility Formats
-- **`think-tags`**: Wrap reasoning in `<think>` tags for DeepSeek R1-style output
+- **`think-tags`**: Wrap reasoning in `<think>` tags
 - **`standard` / `legacy` / `current`**: Use plain string fields: `message.reasoning_summary` and `message.reasoning`
 - **`o3`**: Use structured field: `message.reasoning = { content: [{ type: "text", text: "..." }] }`
+- **`r1`**: DeepSeek API shape — non‑streaming puts CoT into `message.reasoning_content`; streaming emits `choices[0].delta.reasoning_content`
 - **`hide`**: Suppress all reasoning; only final assistant content is returned
 
-Note: The wrapper normalizes `REASONING_COMPAT` values (trims + lowercases), so inputs like `Standard` or `  o3  ` are accepted.
-- **`hide`**: Suppress all reasoning; only final assistant content is returned
+Note: The wrapper normalizes `REASONING_COMPAT` values (trims + lowercases), so inputs like `Standard`, `  o3  `, or `R1` are accepted.
 
 ### Configuration Examples
 
@@ -756,6 +756,11 @@ Standard (SSE delta):
 O3 structured (SSE delta):
 ```json
 { "object": "chat.completion.chunk", "choices": [{ "delta": { "reasoning": { "content": [{ "type": "text", "text": "..." }] } }, "finish_reason": null }] }
+```
+
+R1 (DeepSeek) structured (SSE delta):
+```json
+{ "object": "chat.completion.chunk", "choices": [{ "delta": { "reasoning_content": "..." }, "finish_reason": null }] }
 ```
 
 ### Non‑Streaming vs Streaming with `think-tags`

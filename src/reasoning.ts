@@ -40,11 +40,12 @@ export function buildReasoningParam(
 }
 
 interface ChatMessage {
-	role: string;
-	content: string | null;
-	reasoning?: string | { content: { type: string; text: string }[] };
-	reasoning_summary?: string;
-	[key: string]: unknown;
+    role: string;
+    content: string | null;
+    reasoning?: string | { content: { type: string; text: string }[] };
+    reasoning_summary?: string;
+    reasoning_content?: string | null;
+    [key: string]: unknown;
 }
 
 export function applyReasoningToMessage(
@@ -78,6 +79,22 @@ export function applyReasoningToMessage(
         const rtxt = rtxtParts.filter((p) => p).join("\n\n");
         if (rtxt) {
             message.reasoning = { content: [{ type: "text", text: rtxt }] };
+        }
+        return message;
+    }
+
+    // DeepSeek R1 compatibility: put combined summary+full CoT into `reasoning_content`
+    if (compat === "r1") {
+        const rtxtParts: string[] = [];
+        if (typeof reasoningSummaryText === "string" && reasoningSummaryText.trim()) {
+            rtxtParts.push(reasoningSummaryText);
+        }
+        if (typeof reasoningFullText === "string" && reasoningFullText.trim()) {
+            rtxtParts.push(reasoningFullText);
+        }
+        const rtxt = rtxtParts.filter((p) => p).join("\n\n");
+        if (rtxt) {
+            message.reasoning_content = rtxt;
         }
         return message;
     }

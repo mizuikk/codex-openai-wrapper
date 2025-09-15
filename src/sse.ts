@@ -164,6 +164,21 @@ export async function sseTranslateChat(
                         // Hide mode: swallow all reasoning deltas
                         if (reasoningCompat === "hide") {
                             // Do nothing; skip streaming any reasoning content
+                        } else if (reasoningCompat === "r1") {
+                            const chunk = {
+                                id: responseId,
+                                object: "chat.completion.chunk",
+                                created: created,
+                                model: model,
+                                choices: [
+                                    {
+                                        index: 0,
+                                        delta: { reasoning_content: deltaTxt },
+                                        finish_reason: null
+                                    }
+                                ]
+                            };
+                            controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(chunk)}\n\n`));
                         } else if (reasoningCompat === "o3") {
 								if (kind === "response.reasoning_summary_text.delta" && pendingSummaryParagraph) {
 									const nlChunk = {
