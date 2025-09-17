@@ -48,84 +48,74 @@ interface ChatMessage {
     [key: string]: unknown;
 }
 
+export const REASONING_COMPAT: { [key: string]: string } = {
+	legacy: "standard",
+	current: "standard",
+	hide: "hidden",
+};
+
 export function applyReasoningToMessage(
-    message: ChatMessage,
-    reasoningSummaryText: string,
-    reasoningFullText: string,
-    compat: string
+	message: ChatMessage,
+	reasoningSummaryText: string,
+	reasoningFullText: string,
+	compat: string
 ): ChatMessage {
-    try {
-        // Normalize compatibility mode to avoid case/whitespace issues
-        compat = (compat || "think-tags").trim().toLowerCase();
-    } catch {
-        compat = "think-tags";
-    }
+	let normalizedCompat: string;
+	try {
+		// Normalize compatibility mode to avoid case/whitespace issues
+		normalizedCompat = (compat || "think-tags").trim().toLowerCase();
+		normalizedCompat = REASONING_COMPAT[normalizedCompat] || normalizedCompat;
+	} catch {
+		normalizedCompat = "think-tags";
+	}
 
-    // Hide mode: do not include any reasoning content in the final message.
-    // No <think> tags and no reasoning fields are added.
-    if (compat === "hide") {
-        return message;
-    }
+	// Hide mode: do not include any reasoning content in the final message.
+	if (normalizedCompat === "hidden") {
+		return message;
+	}
 
-    // OpenAI Reasoning API JSON format: put reasoning as a structured content array
-    if (compat === "o3") {
-        const rtxtParts: string[] = [];
-        if (typeof reasoningSummaryText === "string" && reasoningSummaryText.trim()) {
-            rtxtParts.push(reasoningSummaryText);
-        }
-        if (typeof reasoningFullText === "string" && reasoningFullText.trim()) {
-            rtxtParts.push(reasoningFullText);
-        }
-        const rtxt = rtxtParts.filter((p) => p).join("\n\n");
-        if (rtxt) {
-            message.reasoning = { content: [{ type: "text", text: rtxt }] };
-        }
-        return message;
-    }
+	const rtxtParts: string[] = [];
+	if (typeof reasoningSummaryText === "string" && reasoningSummaryText.trim()) {
+		rtxtParts.push(reasoningSummaryText);
+	}
+	if (typeof reasoningFullText === "string" && reasoningFullText.trim()) {
+		rtxtParts.push(reasoningFullText);
+	}
+	const rtxt = rtxtParts.filter((p) => p).join("\n\n");
 
-    // DeepSeek R1 compatibility: put combined summary+full CoT into `reasoning_content`
-    if (compat === "r1") {
-        const rtxtParts: string[] = [];
-        if (typeof reasoningSummaryText === "string" && reasoningSummaryText.trim()) {
-            rtxtParts.push(reasoningSummaryText);
-        }
-        if (typeof reasoningFullText === "string" && reasoningFullText.trim()) {
-            rtxtParts.push(reasoningFullText);
-        }
-        const rtxt = rtxtParts.filter((p) => p).join("\n\n");
-        if (rtxt) {
-            message.reasoning_content = rtxt;
-        }
-        return message;
-    }
+	if (!rtxt) {
+		return message;
+	}
 
-    // Standard/legacy OpenAI Chat Completions compatibility:
-    // expose `reasoning_summary` and `reasoning` as plain strings
-    if (compat === "legacy" || compat === "current" || compat === "standard") {
-        if (reasoningSummaryText) {
-            message.reasoning_summary = reasoningSummaryText;
-        }
-        if (reasoningFullText) {
-            message.reasoning = reasoningFullText;
-        }
-        return message;
-    }
+	// OpenAI Reasoning API JSON format
+	if (normalizedCompat === "o3") {
+		message.reasoning = { content: [{ type: "text", text: rtxt }] };
+		return message;
+	}
 
-    // Default to think-tags compatibility
-    const rtxtParts: string[] = [];
-    if (typeof reasoningSummaryText === "string" && reasoningSummaryText.trim()) {
-        rtxtParts.push(reasoningSummaryText);
-    }
-    if (typeof reasoningFullText === "string" && reasoningFullText.trim()) {
-        rtxtParts.push(reasoningFullText);
-    }
-    const rtxt = rtxtParts.filter((p) => p).join("\n\n");
-    if (rtxt) {
-        const thinkBlock = `<think>${rtxt}</think>`;
-        const contentText = message.content || "";
-        message.content = thinkBlock + (typeof contentText === "string" ? contentText : "");
-    }
-    return message;
+	// DeepSeek R1 compatibility
+	if (normalizedCompat === "r1") {
+		message.reasoning_content = rtxt;
+		return message;
+	}
+
+	// Standard/legacy OpenAI Chat Completions compatibility
+	if (normalizedCompat === "standard") {
+		if (reasoningSummaryText) {
+			message.reasoning_summary = reasoningSummaryText;
+		}
+		if (reasoningFullText){
+			message.reasoning = reasoningFullText;
+		}
+		return message;
+	}
+
+	// Default to think-tags compatibility
+	const thinkBlock = `<think>${rtxt}</think>`;
+	const contentText = message.content || "";
+	message.content =
+		thinkBlock + (typeof contentText === "string" ? contentText : "");
+	return message;
 }
 
 // Infer reasoning overrides from model suffix, like ChatMock:
