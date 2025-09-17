@@ -67,12 +67,43 @@ export interface Env {
 	//   - "safe": forward a safe allowlist (UA, Accept-Language, sec-ch-* , X-Forwarded-For, etc.)
 	//   - "list": forward only headers explicitly listed in FORWARD_CLIENT_HEADERS_LIST
 	//   - "override": after building default headers, override final headers using explicit key-value map
-	FORWARD_CLIENT_HEADERS_MODE?: "off" | "safe" | "list" | "override";
+	//   - "override-codex" | "override_codex": override using fixed values aligned with the openai/codex project
+	FORWARD_CLIENT_HEADERS_MODE?: "off" | "safe" | "list" | "override" | "override-codex" | "override_codex";
 	// When mode = "override": JSON string mapping header names to values, e.g.
 	// '{"User-Agent":"MyApp/1.0","Accept":"text/event-stream"}'
 	FORWARD_CLIENT_HEADERS_OVERRIDE?: string;
+	// When mode = "override-codex": optional JSON string mapping header names to values.
+	// If absent, a safe built-in default derived from the openai/codex project will be used.
+	FORWARD_CLIENT_HEADERS_OVERRIDE_CODEX?: string;
 	// Comma-separated header names (case-insensitive) used when mode = "list"
 	FORWARD_CLIENT_HEADERS_LIST?: string;
+
+	// --- Codex UA/Originator derivation controls (override-codex mode) ---
+	// Optional explicit version to use instead of discovering from GitHub releases.
+	FORWARD_CLIENT_HEADERS_CODEX_VERSION?: string; // e.g. "0.36.0"
+
+	// Preferred: explicit originator override, aligned with `codex-rs`.
+	CODEX_INTERNAL_ORIGINATOR_OVERRIDE?: string; // e.g. "codex_cli_rs"
+	// Legacy/fallback originator override (defaults to "codex_cli_rs").
+	FORWARD_CLIENT_HEADERS_CODEX_ORIGINATOR?: string;
+
+	// Optional explicit OS/arch for UA formatting.
+	// If absent, these are now derived from `sec-ch-ua-*` client hints where available.
+	FORWARD_CLIENT_HEADERS_CODEX_OS_TYPE?: string; // e.g. "Windows"
+	FORWARD_CLIENT_HEADERS_CODEX_OS_VERSION?: string; // e.g. "10.0.26100"
+	FORWARD_CLIENT_HEADERS_CODEX_ARCH?: string; // e.g. "x86_64"
+	// Optional explicit editor info, used if not detected from client's User-Agent.
+	FORWARD_CLIENT_HEADERS_CODEX_EDITOR?: string; // e.g. "vscode/1.104.0"
+	// Optional terminal meta like VSCode version; if absent we attempt detection
+	TERM_PROGRAM?: string;
+	TERM_PROGRAM_VERSION?: string;
+	WEZTERM_VERSION?: string;
+	KONSOLE_VERSION?: string;
+	VTE_VERSION?: string;
+	WT_SESSION?: string;
+	KITTY_WINDOW_ID?: string;
+	ALACRITTY_SOCKET?: string;
+	TERM?: string;
 
 	// --- Instructions source overrides ---
 	INSTRUCTIONS_BASE_URL?: string; // URL to a base prompt markdown

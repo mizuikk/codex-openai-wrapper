@@ -25,6 +25,170 @@ type ErrorBody = {
 // and otherwise maps a fingerprint to a random UUID. We implement the
 // compatible behavior in src/session.ts and use it here.
 
+// Helper for override-codex: only manage 'user-agent' and 'originator'.
+// Values are sourced dynamically from the incoming client request headers
+// when available; otherwise optional env JSON may provide explicit values.
+const CODEX_KEYS = new Set(["user-agent", "originator"]);
+
+// Cache computed Codex UA/originator between requests.
+let CODExCachedUA: { ua: string; originator: string } | null = null;
+
+function sanitizeHeaderValue(value: string): string {
+    try {
+        // Allow visible ASCII 0x20..0x7E; replace others with underscore
+        let out = "";
+        for (const ch of value) {
+            const code = ch.charCodeAt(0);
+            out += code >= 0x20 && code <= 0x7e ? ch : "_";
+        }
+        return out;
+    } catch {
+        return value;
+    }
+}
+
+function detectTerminalUA(env: Env): string {
+    const tp = (env.TERM_PROGRAM || "").trim();
+    const tpv = (env.TERM_PROGRAM_VERSION || "").trim();
+    if (tp) return sanitizeHeaderValue(tpv ? `${tp}/${tpv}` : tp);
+    const wz = (env.WEZTERM_VERSION || "").trim();
+    if (wz) return sanitizeHeaderValue(`WezTerm/${wz}`);
+    if ((env.KITTY_WINDOW_ID || "").trim() || (env.TERM || "").toLowerCase().includes("kitty")) return "kitty";
+    if ((env.ALACRITTY_SOCKET || "").trim() || (env.TERM || "") === "alacritty") return "Alacritty";
+    const kv = (env.KONSOLE_VERSION || "").trim();
+    if (kv) return sanitizeHeaderValue(`Konsole/${kv}`);
+    const vte = (env.VTE_VERSION || "").trim();
+    if (vte) return sanitizeHeaderValue(`VTE/${vte}`);
+    if ((env.WT_SESSION || "").trim()) return "WindowsTerminal";
+    return sanitizeHeaderValue(env.TERM || "unknown");
+}
+
+type GitHubRelease = { name?: string; tag_name?: string };
+type GitHubTag = { name: string };
+
+async function fetchLatestCodexVersion(): Promise<string | null> {
+    try {
+        const res = await fetch("https://api.github.com/repos/openai/codex/releases/latest", {
+            headers: {
+                "Accept": "application/vnd.github+json",
+                // GitHub API recommends/asks for a User-Agent
+                "User-Agent": "codex-openai-wrapper/override-codex"
+            },
+        });
+        if (!res.ok) return null;
+        const data = (await res.json()) as GitHubRelease;
+        // Prefer the human-readable name; fallback to tag_name like "rust-v0.36.0"
+        let v: string | undefined = data?.name;
+        if (!v || typeof v !== "string" || !v.trim()) {
+            const tag = (data?.tag_name as string) || "";
+            v = tag.replace(/^rust-v/i, "").trim();
+        }
+        if (typeof v === "string" && v.trim()) return v.trim();
+        return null;
+    } catch {
+        return null;
+    }
+}
+
+function parseRustTagToVersion(name: string): string | null {
+    const m = name.match(/^rust-v(\d+)\.(\d+)\.(\d+)$/i);
+    if (!m) return null;
+    return `${parseInt(m[1], 10)}.${parseInt(m[2], 10)}.${parseInt(m[3], 10)}`;
+}
+
+function cmpSemver(a: string, b: string): number {
+    const pa = a.split(".").map((x) => parseInt(x, 10));
+    const pb = b.split(".").map((x) => parseInt(x, 10));
+    for (let i = 0; i < 3; i++) {
+        const da = pa[i] || 0;
+        const db = pb[i] || 0;
+        if (da !== db) return da - db;
+    }
+    return 0;
+}
+
+async function fetchLatestCodexVersionFromTags(): Promise<string | null> {
+    try {
+        const res = await fetch("https://api.github.com/repos/openai/codex/tags?per_page=100", {
+            headers: {
+                Accept: "application/vnd.github+json",
+                "User-Agent": "codex-openai-wrapper/override-codex",
+            },
+        });
+        if (!res.ok) return null;
+        const list = (await res.json()) as GitHubTag[];
+        let best: string | null = null;
+        for (const t of list) {
+            const ver = parseRustTagToVersion(t.name);
+            if (!ver) continue;
+            if (!best || cmpSemver(ver, best) > 0) best = ver;
+        }
+        return best;
+    } catch {
+        return null;
+    }
+}
+
+async function ensureCodexUA(env: Env, forwardedClientHeaders?: Headers): Promise<{ ua: string; originator: string }> {
+	if (CODExCachedUA) return CODExCachedUA;
+
+	// Originator: prefer new env var, fallback to old, then default.
+	const originator =
+		(env.CODEX_INTERNAL_ORIGINATOR_OVERRIDE || env.FORWARD_CLIENT_HEADERS_CODEX_ORIGINATOR || "codex_cli_rs").trim() ||
+		"codex_cli_rs";
+
+	// Version: prefer env var, fallback to dynamic GitHub fetch.
+	let version = (env.FORWARD_CLIENT_HEADERS_CODEX_VERSION || "").trim();
+	if (!version) {
+		version = (await fetchLatestCodexVersion()) || (await fetchLatestCodexVersionFromTags()) || "0.0.0";
+	}
+
+	// OS/Arch/Editor: prefer client hints/UA, fallback to env, then 'unknown'.
+	const unquote = (s: string | null) => (s ? s.trim().replace(/^"|"$/g, "").trim() : null);
+
+	let osType = unquote(forwardedClientHeaders?.get("sec-ch-ua-platform") || null);
+	let osVer = unquote(forwardedClientHeaders?.get("sec-ch-ua-platform-version") || null);
+	let arch = unquote(forwardedClientHeaders?.get("sec-ch-ua-arch") || null);
+	let editorInfo: string | null = null;
+
+	const clientUA = forwardedClientHeaders?.get("user-agent") || "";
+	// Match "Code/1.91.1" or "vscode/1.104.0"
+	const editorMatch = clientUA.match(/(vscode|Code)\/([^\s]+)/);
+	if (editorMatch) {
+		// Normalize to "vscode/version"
+		editorInfo = `vscode/${editorMatch[2]}`;
+	}
+	// Fallback to environment variable if not detected
+	if (!editorInfo) {
+		editorInfo = (env.FORWARD_CLIENT_HEADERS_CODEX_EDITOR || "").trim() || null;
+	}
+
+	osType = osType || (env.FORWARD_CLIENT_HEADERS_CODEX_OS_TYPE || "unknown").trim() || "unknown";
+	osVer = osVer || (env.FORWARD_CLIENT_HEADERS_CODEX_OS_VERSION || "unknown").trim() || "unknown";
+	arch = arch || (env.FORWARD_CLIENT_HEADERS_CODEX_ARCH || "unknown").trim() || "unknown";
+
+	const term = detectTerminalUA(env);
+
+	// Final UA assembly, mirroring `codex-rs` format.
+	let ua = `${originator}/${version} (${osType} ${osVer}; ${arch}) ${term}`;
+	if (editorInfo) {
+		ua = `${ua} (${editorInfo})`;
+	}
+	const finalUA = sanitizeHeaderValue(ua);
+
+	// Only cache when version discovery succeeded (avoid pinning 0.0.0)
+	if (version !== "0.0.0") {
+		CODExCachedUA = { ua: finalUA, originator };
+		return CODExCachedUA;
+	}
+	return { ua: finalUA, originator };
+}
+
+function isOverrideCodexMode(mode: string) {
+    const m = (mode || "").toLowerCase();
+    return m === "override-codex" || m === "override_codex";
+}
+
 export async function startUpstreamRequest(
 	env: Env, // Pass the environment object
 	model: string,
@@ -235,18 +399,51 @@ export async function startUpstreamRequest(
     // After setting authentication and protocol headers, optionally override
 	// final headers from the client using a configured list. Authorization
 	// is never overridden to avoid breaking upstream auth.
-function applyOverrideClientHeaders() {
-		const mode = (env.FORWARD_CLIENT_HEADERS_MODE || "off").toLowerCase();
-		if (mode !== "override") return;
+async function applyOverrideClientHeaders() {
+		const rawMode = env.FORWARD_CLIENT_HEADERS_MODE || "off";
+		const mode = rawMode.toLowerCase();
+
 		let map: Record<string, unknown> | null = null;
-		try {
-			if (env.FORWARD_CLIENT_HEADERS_OVERRIDE && env.FORWARD_CLIENT_HEADERS_OVERRIDE.trim()) {
-				map = JSON.parse(env.FORWARD_CLIENT_HEADERS_OVERRIDE) as Record<string, unknown>;
+
+		if (mode === "override") {
+			try {
+				if (env.FORWARD_CLIENT_HEADERS_OVERRIDE && env.FORWARD_CLIENT_HEADERS_OVERRIDE.trim()) {
+					map = JSON.parse(env.FORWARD_CLIENT_HEADERS_OVERRIDE) as Record<string, unknown>;
+				}
+			} catch (e) {
+				console.warn("[header-override] Invalid JSON in FORWARD_CLIENT_HEADERS_OVERRIDE:", e);
+				map = null;
 			}
-		} catch (e) {
-			console.warn("[header-override] Invalid JSON in FORWARD_CLIENT_HEADERS_OVERRIDE:", e);
-			map = null;
-		}
+    } else if (isOverrideCodexMode(mode)) {
+            // Build map only for user-agent and originator, derived from Codex project rules
+            // and optionally overridden by FORWARD_CLIENT_HEADERS_OVERRIDE_CODEX.
+            const out: Record<string, string> = {};
+            try {
+                const derived = await ensureCodexUA(env, options?.forwardedClientHeaders);
+                out["User-Agent"] = derived.ua;
+                out["originator"] = derived.originator;
+            } catch {}
+            try {
+                if (env.FORWARD_CLIENT_HEADERS_OVERRIDE_CODEX && env.FORWARD_CLIENT_HEADERS_OVERRIDE_CODEX.trim()) {
+                    const envMap = JSON.parse(env.FORWARD_CLIENT_HEADERS_OVERRIDE_CODEX) as Record<string, unknown>;
+                    for (const [k, v] of Object.entries(envMap)) {
+                        const lk = k.toLowerCase();
+                        if (!CODEX_KEYS.has(lk)) continue;
+                        if (v == null) continue;
+                        const sv = String(v).trim();
+                        if (!sv) continue;
+                        if (lk === "user-agent") out["User-Agent"] = sv;
+                        else if (lk === "originator") out["originator"] = sv;
+                    }
+                }
+            } catch (e) {
+                console.warn("[header-override] Invalid JSON in FORWARD_CLIENT_HEADERS_OVERRIDE_CODEX:", e);
+            }
+            map = Object.keys(out).length ? (out as Record<string, unknown>) : null;
+    } else {
+            return; // not an override mode
+    }
+
 		if (!map) return;
 
 		const lower = (s: string) => s.toLowerCase();
@@ -262,17 +459,14 @@ function applyOverrideClientHeaders() {
 			(headers as Record<string, string>)[key] = value;
 		};
 
-		for (const [name, rawVal] of Object.entries(map)) {
-			if (lower(name) === "authorization") continue; // hard-reserved
-			if (rawVal == null) continue;
-			const val = String(rawVal);
-			if (val.length === 0) continue;
-			setCanonical(name, val);
-			if (lower(name) === "accept" && val.toLowerCase() !== "text/event-stream") {
-				console.warn("[header-override] Accept changed; SSE behavior may differ:", val);
-			}
-		}
-	}
+        for (const [name, rawVal] of Object.entries(map)) {
+            if (lower(name) === "authorization") continue; // hard-reserved
+            if (rawVal == null) continue;
+            const val = String(rawVal);
+            if (val.length === 0) continue;
+            setCanonical(name, val);
+        }
+    }
 
 	if (!isOllamaRequest) {
 		// Pre-validate API key in apikey_* modes for clearer errors
@@ -301,7 +495,7 @@ function applyOverrideClientHeaders() {
 						)
 					};
 				}
-			} catch (e) {
+			} catch {
 				return {
 					response: null,
 					error: new Response(
@@ -357,7 +551,7 @@ function applyOverrideClientHeaders() {
 	}
 
 	// Apply final override, if configured
-	applyOverrideClientHeaders();
+	await applyOverrideClientHeaders();
 
 	try {
 		const upstreamResponse = await fetch(requestUrl, {
@@ -409,38 +603,68 @@ function applyOverrideClientHeaders() {
 					}
 
 					// Apply final override to retry headers as well (if configured)
-(function applyOverrideOnRetry() {
-						const mode = (env.FORWARD_CLIENT_HEADERS_MODE || "off").toLowerCase();
-						if (mode !== "override") return;
-						let map: Record<string, unknown> | null = null;
-						try {
-							if (env.FORWARD_CLIENT_HEADERS_OVERRIDE && env.FORWARD_CLIENT_HEADERS_OVERRIDE.trim()) {
-								map = JSON.parse(env.FORWARD_CLIENT_HEADERS_OVERRIDE) as Record<string, unknown>;
-							}
-						} catch {}
-						if (!map) return;
-						const lower = (s: string) => s.toLowerCase();
-						const setCanonical = (name: string, value: string) => {
-							const n = lower(name);
-							let key = name;
-							if (n === "accept") key = "Accept";
-							else if (n === "content-type") key = "Content-Type";
-							else if (n === "authorization") key = "Authorization";
-							else if (n === "openai-beta") key = "OpenAI-Beta";
-							else if (n === "chatgpt-account-id") key = "chatgpt-account-id";
-							else if (n === "session_id") key = "session_id";
-							(headers as Record<string, string>)[key] = value;
-						};
-						for (const [name, rawVal] of Object.entries(map)) {
-							if (lower(name) === "authorization") continue;
-							if (rawVal == null) continue;
-							const val = String(rawVal);
-							if (val.length === 0) continue;
-							setCanonical(name, val);
-						}
-					})();
+async function applyOverrideOnRetry() {
+                        const rawMode = env.FORWARD_CLIENT_HEADERS_MODE || "off";
+                        const mode = rawMode.toLowerCase();
+                        let map: Record<string, unknown> | null = null;
+                        try {
+                            if (mode === "override") {
+                                if (env.FORWARD_CLIENT_HEADERS_OVERRIDE && env.FORWARD_CLIENT_HEADERS_OVERRIDE.trim()) {
+                                    map = JSON.parse(env.FORWARD_CLIENT_HEADERS_OVERRIDE) as Record<string, unknown>;
+                                }
+                            } else if (isOverrideCodexMode(mode)) {
+                                // Rebuild the same UA/originator map used in the first attempt (derived from Codex)
+                                const out: Record<string, string> = {};
+                                try {
+                                    const derived = await ensureCodexUA(env, options?.forwardedClientHeaders);
+                                    out["User-Agent"] = derived.ua;
+                                    out["originator"] = derived.originator;
+                                } catch {}
+                                try {
+                                    if (env.FORWARD_CLIENT_HEADERS_OVERRIDE_CODEX && env.FORWARD_CLIENT_HEADERS_OVERRIDE_CODEX.trim()) {
+                                        const envMap = JSON.parse(env.FORWARD_CLIENT_HEADERS_OVERRIDE_CODEX) as Record<string, unknown>;
+                                        for (const [k, v] of Object.entries(envMap)) {
+                                            const lk = k.toLowerCase();
+                                            if (!CODEX_KEYS.has(lk)) continue;
+                                            if (v == null) continue;
+                                            const sv = String(v).trim();
+                                            if (!sv) continue;
+                                            if (lk === "user-agent") out["User-Agent"] = sv;
+                                            else if (lk === "originator") out["originator"] = sv;
+                                        }
+                                    }
+                                } catch {}
+                                map = Object.keys(out).length ? (out as Record<string, unknown>) : null;
+                            } else {
+                                return;
+                            }
+                        } catch {}
+                        if (!map) return;
+                        const lower = (s: string) => s.toLowerCase();
+                        const setCanonical = (name: string, value: string) => {
+                            const n = lower(name);
+                            let key = name;
+                            if (n === "accept") key = "Accept";
+                            else if (n === "content-type") key = "Content-Type";
+                            else if (n === "authorization") key = "Authorization";
+                            else if (n === "openai-beta") key = "OpenAI-Beta";
+                            else if (n === "chatgpt-account-id") key = "chatgpt-account-id";
+                            else if (n === "session_id") key = "session_id";
+                            (headers as Record<string, string>)[key] = value;
+                        };
+                        for (const [name, rawVal] of Object.entries(map)) {
+                            if (lower(name) === "authorization") continue;
+                            if (rawVal == null) continue;
+                            const val = String(rawVal);
+                            if (val.length === 0) continue;
+                            setCanonical(name, val);
+                        }
+                    }
 
-					const retryResponse = await fetch(requestUrl, {
+                    // Apply final override to retry headers as well (if configured)
+                    await applyOverrideOnRetry();
+
+                    const retryResponse = await fetch(requestUrl, {
 						method: "POST",
 						headers: headers,
 						body: requestBody

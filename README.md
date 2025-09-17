@@ -277,6 +277,22 @@ The service will be available at `http://localhost:8787`
 
 ## 🔧 Configuration
 
+### Automatic Environment Generation
+
+To simplify the setup of environment variables for the User-Agent, you can use a helper script to detect your local OS, architecture, and editor details.
+
+**Instructions:**
+
+1.  **Run the command from within the VS Code integrated terminal.** This is important for detecting editor-specific variables like `TERM_PROGRAM`.
+2.  Execute the following command:
+    ```bash
+    npm run gen:env
+    ```
+3.  The script will output a list of key-value pairs.
+4.  Copy these values and paste them into your `.dev.vars` file for local development, or set them as secrets for production deployment.
+
+This will ensure your worker uses a detailed and accurate `User-Agent` string, mirroring the behavior of the official Codex CLI.
+
 ### Environment Variables
 
 #### Core Configuration
@@ -835,6 +851,20 @@ The wrapper can propagate selected client headers to the upstream to preserve cl
   - `safe`: forwards an allowlist: `User-Agent`, `Accept-Language`, `sec-ch-*`, `X-Forwarded-For`, `X-Forwarded-Proto`, `X-Forwarded-Host`, `CF-Connecting-IP`.
   - `list`: forwards only headers named in `FORWARD_CLIENT_HEADERS_LIST` (comma-separated). Values are taken from the incoming client request. Protocol‑critical headers are not overridden.
   - `override`: use `FORWARD_CLIENT_HEADERS_OVERRIDE` (JSON map) to explicitly set final header values; only provided keys are applied, others keep defaults.
+  - `override-codex` (or `override_codex`): Dynamically constructs a `User-Agent` and `originator` header that mimics the official OpenAI Codex CLI, providing a more authentic client fingerprint.
+    - **`User-Agent` Format**: `${originator}/${version} (${osType} ${osVersion}; ${arch}) ${terminal} (${editor})`
+    - **Information Sourcing Priority**:
+      1.  **Dynamic Detection**: The wrapper first attempts to derive OS, architecture, and editor details from forwarded client headers (`Sec-CH-UA-*` and `User-Agent`). This works best with browser-based clients.
+      2.  **Environment Fallback**: If headers are not present (e.g., when using non-browser clients like `curl` or Python scripts), it falls back to environment variables (see below).
+      3.  **Default**: If neither is available, values default to `unknown`.
+    - **Key Environment Variables**:
+      - `CODEX_INTERNAL_ORIGINATOR_OVERRIDE`: Sets the originator (defaults to `codex_cli_rs`).
+      - `FORWARD_CLIENT_HEADERS_CODEX_VERSION`: Overrides the version (defaults to the latest from GitHub).
+      - `FORWARD_CLIENT_HEADERS_CODEX_OS_TYPE`, `_OS_VERSION`, `_ARCH`: Manually set OS and architecture details.
+      - `FORWARD_CLIENT_HEADERS_CODEX_EDITOR`: Manually set editor info (e.g., `vscode/1.104.0`).
+    - **Automatic Configuration**: You can use `npm run gen:env` to automatically detect and generate these environment variables. See the "Automatic Environment Generation" section for details.
+    - **Legacy Static Override**: `FORWARD_CLIENT_HEADERS_OVERRIDE_CODEX` can still be used for a full, static override of the final `User-Agent` and `originator` values.
+    - Note: `Authorization` is never overridden. Protocol‑critical headers such as `Content-Type`, `Accept`, `OpenAI-Beta`, `chatgpt-account-id`, and `session_id` are managed by the wrapper; this mode does not change them.
   - Hard-reserved header (never overridden): `Authorization`.
   - In non-override modes, these are not overridden: `Content-Type`, `Accept`, `OpenAI-Beta`, `chatgpt-account-id`, `session_id`.
 
