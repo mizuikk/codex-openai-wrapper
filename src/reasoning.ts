@@ -111,7 +111,7 @@ export function applyReasoningToMessage(
 	}
 
 	// Default to tagged content compatibility
-	const thinkBlock = ``;
+	const thinkBlock = `<think>${rtxt}</think>`;
 	const contentText = message.content || "";
 	message.content =
 		thinkBlock + (typeof contentText === "string" ? contentText : "");

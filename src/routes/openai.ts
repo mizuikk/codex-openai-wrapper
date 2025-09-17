@@ -13,7 +13,16 @@ openai.post("/v1/chat/completions", openaiAuthMiddleware(), async (c) => {
 	const verbose = c.env.VERBOSE === "true";
 	const reasoningEffort = c.env.REASONING_EFFORT || "minimal";
 	const reasoningSummary = c.env.REASONING_SUMMARY || "auto";
-	const reasoningCompat = c.env.REASONING_COMPAT || "tagged";
+	// Allow per-route override via context, fall back to env (support alias REASONING_OUTPUT_MODE)
+	let reasoningCompat =
+		(((c as any).get("REASONING_COMPAT_OVERRIDE") as string | undefined) ||
+			((c.env as any).REASONING_OUTPUT_MODE as string | undefined) ||
+			(c.env.REASONING_COMPAT as unknown as string | undefined) ||
+			"tagged");
+	if (reasoningCompat === "all") {
+		// Default the root /v1 to tagged when running in ALL mode
+		reasoningCompat = "tagged";
+	}
 	const debugModel = c.env.DEBUG_MODEL;
 
 	// Minimal request logging

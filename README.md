@@ -737,6 +737,20 @@ Aliases: `on` = `concise`, `off` = `none`.
 
 Note: The wrapper normalizes `REASONING_COMPAT` values (trims + lowercases), so inputs like `Standard`, `  o3  `, or `R1` are accepted.
 
+#### "all" Mode (Multi-endpoint Compatibility)
+
+Set `REASONING_COMPAT=all` (or `REASONING_OUTPUT_MODE=all`) to expose multiple prefixed endpoints simultaneously, each locked to a specific compatibility format:
+
+- `/tagged/v1/*`   → `tagged`
+- `/r1/v1/*`       → `r1`
+- `/o3/v1/*`       → `o3`
+- `/standard/v1/*` → `standard`
+- `/legacy/v1/*`   → `legacy`
+- `/current/v1/*`  → `current`
+- `/hide/v1/*`     → `hide`
+
+When ALL mode is enabled, the root `/v1/*` continues to work and defaults to `tagged`.
+
 ### Configuration Examples
 
 **Environment-level configuration** (applies to all requests):
