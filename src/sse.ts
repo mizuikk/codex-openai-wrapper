@@ -1,4 +1,5 @@
 // src/sse.ts
+import { normalizeCompatMode } from './reasoning';
 interface SseEvent {
 	type: string;
 	response?: {
@@ -25,11 +26,7 @@ export async function sseTranslateChat(
     reasoningCompat: string = "tagged"
 ): Promise<ReadableStream> {
     // Normalize compatibility mode once for the whole stream
-    try {
-        reasoningCompat = (reasoningCompat || "tagged").trim().toLowerCase();
-    } catch {
-        reasoningCompat = "tagged";
-    }
+    reasoningCompat = normalizeCompatMode(reasoningCompat);
 
     const reader = upstreamResponse.body?.getReader();
 	if (!reader) {
@@ -162,7 +159,7 @@ export async function sseTranslateChat(
                     } else if (kind === "response.reasoning_summary_text.delta" || kind === "response.reasoning_text.delta") {
                         const deltaTxt = evt.delta || "";
                         // Hide mode: swallow all reasoning deltas
-                        if (reasoningCompat === "hide") {
+                        if (reasoningCompat === "hidden") {
                             // Do nothing; skip streaming any reasoning content
                         } else if (reasoningCompat === "r1") {
                             const chunk = {

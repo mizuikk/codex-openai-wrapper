@@ -54,20 +54,31 @@ export const REASONING_COMPAT: { [key: string]: string } = {
 	hide: "hidden",
 };
 
+/**
+ * Normalize compatibility mode with alias mapping
+ * - Trims and lowercases the input
+ * - Applies alias mappings (hide→hidden, legacy/current→standard)
+ * - Returns standardized compatibility mode
+ */
+export function normalizeCompatMode(compat: string): string {
+	try {
+		let normalized = (compat || "tagged").trim().toLowerCase();
+		normalized = REASONING_COMPAT[normalized] || normalized;
+		// If the normalized value is not a known mode, default to tagged
+		const knownModes = new Set(["tagged", "standard", "o3", "r1", "hidden"]);
+		return knownModes.has(normalized) ? normalized : "tagged";
+	} catch {
+		return "tagged";
+	}
+}
+
 export function applyReasoningToMessage(
 	message: ChatMessage,
 	reasoningSummaryText: string,
 	reasoningFullText: string,
 	compat: string
 ): ChatMessage {
-	let normalizedCompat: string;
-	try {
-		// Normalize compatibility mode to avoid case/whitespace issues
-		normalizedCompat = (compat || "tagged").trim().toLowerCase();
-		normalizedCompat = REASONING_COMPAT[normalizedCompat] || normalizedCompat;
-	} catch {
-		normalizedCompat = "tagged";
-	}
+	const normalizedCompat = normalizeCompatMode(compat);
 
 	// Hide mode: do not include any reasoning content in the final message.
 	if (normalizedCompat === "hidden") {
