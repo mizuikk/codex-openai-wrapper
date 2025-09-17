@@ -62,39 +62,39 @@ export interface Env {
 	UPSTREAM_TOOLS_FORMAT?: "nested" | "flat";
 
 	// --- Client header forwarding controls ---
-	// Controls how incoming client headers are forwarded to the upstream.
-	//   - "off" (default): do not forward client headers
-	//   - "safe": forward a safe allowlist (UA, Accept-Language, sec-ch-* , X-Forwarded-For, etc.)
-	//   - "list": forward only headers explicitly listed in FORWARD_CLIENT_HEADERS_LIST
-	//   - "override": after building default headers, override final headers using explicit key-value map
-	//   - "override-codex" | "override_codex": override using fixed values aligned with the openai/codex project
+	// Controls how incoming client headers are forwarded to the upstream service.
+	//   - "off" (default): do not forward any client headers
+	//   - "safe": forward a security-allowlist of headers (User-Agent, Accept-Language, sec-ch-*, X-Forwarded-*, etc.)
+	//   - "list": forward only headers explicitly listed in FORWARD_CLIENT_HEADERS_LIST environment variable
+	//   - "override": after building default headers, override final headers using explicit key-value mapping
+	//   - "override-codex" | "override_codex": dynamically build Codex CLI style headers (User-Agent and originator)
 	FORWARD_CLIENT_HEADERS_MODE?: "off" | "safe" | "list" | "override" | "override-codex" | "override_codex";
-	// When mode = "override": JSON string mapping header names to values, e.g.
-	// '{"User-Agent":"MyApp/1.0","Accept":"text/event-stream"}'
+	// When mode = "override": JSON string mapping header names to values for explicit override
+	// Example: '{"User-Agent":"MyApp/1.0","Accept":"text/event-stream"}'
 	FORWARD_CLIENT_HEADERS_OVERRIDE?: string;
-	// When mode = "override-codex": optional JSON string mapping header names to values.
-	// If absent, a safe built-in default derived from the openai/codex project will be used.
+	// When mode = "override-codex": optional JSON string for overriding Codex-generated header values
+	// If absent, safe built-in defaults derived from the openai/codex project will be used
 	FORWARD_CLIENT_HEADERS_OVERRIDE_CODEX?: string;
-	// Comma-separated header names (case-insensitive) used when mode = "list"
+	// Comma-separated header names (case-insensitive) used when mode = "list" environment variable
 	FORWARD_CLIENT_HEADERS_LIST?: string;
 
 	// --- Codex UA/Originator derivation controls (override-codex mode) ---
-	// Optional explicit version to use instead of discovering from GitHub releases.
+	// Optional explicit version to use instead of auto-discovering from GitHub releases
 	FORWARD_CLIENT_HEADERS_CODEX_VERSION?: string; // e.g. "0.36.0"
 
-	// Preferred: explicit originator override, aligned with `codex-rs`.
+	// Preferred: explicit originator override, aligned with codex-rs project
 	CODEX_INTERNAL_ORIGINATOR_OVERRIDE?: string; // e.g. "codex_cli_rs"
-	// Legacy/fallback originator override (defaults to "codex_cli_rs").
+	// Legacy/fallback originator override (defaults to "codex_cli_rs" if not set)
 	FORWARD_CLIENT_HEADERS_CODEX_ORIGINATOR?: string;
 
-	// Optional explicit OS/arch for UA formatting.
-	// If absent, these are now derived from `sec-ch-ua-*` client hints where available.
+	// Optional explicit OS/architecture information for User-Agent formatting
+	// If absent, these are derived from sec-ch-ua-* client hints when available
 	FORWARD_CLIENT_HEADERS_CODEX_OS_TYPE?: string; // e.g. "Windows"
 	FORWARD_CLIENT_HEADERS_CODEX_OS_VERSION?: string; // e.g. "10.0.26100"
 	FORWARD_CLIENT_HEADERS_CODEX_ARCH?: string; // e.g. "x86_64"
-	// Optional explicit editor info, used if not detected from client's User-Agent.
+	// Optional explicit editor information, used if not detected from client's User-Agent
 	FORWARD_CLIENT_HEADERS_CODEX_EDITOR?: string; // e.g. "vscode/1.104.0"
-	// Optional terminal meta like VSCode version; if absent we attempt detection
+	// Terminal detection environment variables for User-Agent construction
 	TERM_PROGRAM?: string;
 	TERM_PROGRAM_VERSION?: string;
 	WEZTERM_VERSION?: string;

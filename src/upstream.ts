@@ -25,9 +25,9 @@ type ErrorBody = {
 // and otherwise maps a fingerprint to a random UUID. We implement the
 // compatible behavior in src/session.ts and use it here.
 
-// Helper for override-codex: only manage 'user-agent' and 'originator'.
-// Values are sourced dynamically from the incoming client request headers
-// when available; otherwise optional env JSON may provide explicit values.
+// Helper for override-codex mode: manages only 'user-agent' and 'originator' headers.
+// Values are sourced dynamically from incoming client request headers when available,
+// otherwise optional environment variables may provide explicit values.
 const CODEX_KEYS = new Set(["user-agent", "originator"]);
 
 // Cache computed Codex UA/originator between requests.
@@ -334,11 +334,24 @@ export async function startUpstreamRequest(
 		"Content-Type": "application/json"
 	};
 
-	// Optionally forward a subset of client headers to the upstream for
-	// fingerprint/feature transparency, without compromising protocol headers.
-		(function applyClientHeaderForwarding() {
-			const mode = (env.FORWARD_CLIENT_HEADERS_MODE || "off").toLowerCase();
-			if (!options?.forwardedClientHeaders || mode === "off") return;
+	// Client header forwarding module: forwards a subset of client headers to upstream
+	// for fingerprint/feature transparency while preserving protocol-critical headers.
+	(function applyClientHeaderForwarding() {
+		const mode = (env.FORWARD_CLIENT_HEADERS_MODE || "off").toLowerCase();
+		if (!options?.forwardedClientHeaders || mode === "off") return;
+
+		// Log FORWARD_CLIENT_HEADERS_MODE configuration on first request to show active settings
+		if (!(globalThis as any)._forwardClientHeadersModeLogged) {
+			(globalThis as any)._forwardClientHeadersModeLogged = true;
+			console.log(`[FORWARD_CLIENT_HEADERS_MODE] Mode: ${mode}`);
+			
+			if (mode === "safe") {
+				console.log("[FORWARD_CLIENT_HEADERS_MODE] Safe mode - forwarding allowlist headers: User-Agent, Accept-Language, sec-ch-*, X-Forwarded-*, CF-Connecting-IP");
+			} else if (mode === "list") {
+				const headerList = env.FORWARD_CLIENT_HEADERS_LIST || "";
+				console.log(`[FORWARD_CLIENT_HEADERS_MODE] List mode - forwarding headers: ${headerList}`);
+			}
+		}
 
 		// Always treat header names as case-insensitive
         const RESERVED = new Set([
@@ -396,24 +409,33 @@ export async function startUpstreamRequest(
 			}
 		})();
 
-    // After setting authentication and protocol headers, optionally override
-	// final headers from the client using a configured list. Authorization
-	// is never overridden to avoid breaking upstream auth.
+    // Header override module: applies final header overrides after authentication
+ // and protocol headers are set. Authorization is never overridden to preserve
+ // upstream authentication security.
 async function applyOverrideClientHeaders() {
-		const rawMode = env.FORWARD_CLIENT_HEADERS_MODE || "off";
-		const mode = rawMode.toLowerCase();
+	const rawMode = env.FORWARD_CLIENT_HEADERS_MODE || "off";
+	const mode = rawMode.toLowerCase();
 
-		let map: Record<string, unknown> | null = null;
+	let map: Record<string, unknown> | null = null;
 
-		if (mode === "override") {
-			try {
-				if (env.FORWARD_CLIENT_HEADERS_OVERRIDE && env.FORWARD_CLIENT_HEADERS_OVERRIDE.trim()) {
-					map = JSON.parse(env.FORWARD_CLIENT_HEADERS_OVERRIDE) as Record<string, unknown>;
+	if (mode === "override") {
+		try {
+			if (env.FORWARD_CLIENT_HEADERS_OVERRIDE && env.FORWARD_CLIENT_HEADERS_OVERRIDE.trim()) {
+				map = JSON.parse(env.FORWARD_CLIENT_HEADERS_OVERRIDE) as Record<string, unknown>;
+				
+				// Log override configuration on first request to display configured header values
+				if (!(globalThis as any)._forwardClientHeadersOverrideLogged) {
+					(globalThis as any)._forwardClientHeadersOverrideLogged = true;
+					console.log("[FORWARD_CLIENT_HEADERS_MODE] Override mode - configured headers:");
+					for (const [key, value] of Object.entries(map)) {
+						console.log(`  - ${key}: ${value}`);
+					}
 				}
-			} catch (e) {
-				console.warn("[header-override] Invalid JSON in FORWARD_CLIENT_HEADERS_OVERRIDE:", e);
-				map = null;
 			}
+		} catch (e) {
+			console.warn("[header-override] Invalid JSON in FORWARD_CLIENT_HEADERS_OVERRIDE:", e);
+			map = null;
+		}
     } else if (isOverrideCodexMode(mode)) {
             // Build map only for user-agent and originator, derived from Codex project rules
             // and optionally overridden by FORWARD_CLIENT_HEADERS_OVERRIDE_CODEX.
@@ -422,6 +444,20 @@ async function applyOverrideClientHeaders() {
                 const derived = await ensureCodexUA(env, options?.forwardedClientHeaders);
                 out["User-Agent"] = derived.ua;
                 out["originator"] = derived.originator;
+                
+                // Log override-codex configuration on first request to display generated header values
+                if (!(globalThis as any)._forwardClientHeadersCodexLogged) {
+                    (globalThis as any)._forwardClientHeadersCodexLogged = true;
+                    console.log("[FORWARD_CLIENT_HEADERS_MODE] Override-Codex mode - generated headers:");
+                    console.log(`  - User-Agent: ${derived.ua}`);
+                    console.log(`  - originator: ${derived.originator}`);
+                    
+                    // Log source information for debugging
+                    const hasEnvOverride = env.FORWARD_CLIENT_HEADERS_OVERRIDE_CODEX && env.FORWARD_CLIENT_HEADERS_OVERRIDE_CODEX.trim();
+                    if (hasEnvOverride) {
+                        console.log("  - Note: Some values may be overridden by FORWARD_CLIENT_HEADERS_OVERRIDE_CODEX environment variable");
+                    }
+                }
             } catch {}
             try {
                 if (env.FORWARD_CLIENT_HEADERS_OVERRIDE_CODEX && env.FORWARD_CLIENT_HEADERS_OVERRIDE_CODEX.trim()) {
