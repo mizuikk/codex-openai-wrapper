@@ -63,10 +63,10 @@ export function applyReasoningToMessage(
 	let normalizedCompat: string;
 	try {
 		// Normalize compatibility mode to avoid case/whitespace issues
-		normalizedCompat = (compat || "think-tags").trim().toLowerCase();
+		normalizedCompat = (compat || "tagged").trim().toLowerCase();
 		normalizedCompat = REASONING_COMPAT[normalizedCompat] || normalizedCompat;
 	} catch {
-		normalizedCompat = "think-tags";
+		normalizedCompat = "tagged";
 	}
 
 	// Hide mode: do not include any reasoning content in the final message.
@@ -110,8 +110,8 @@ export function applyReasoningToMessage(
 		return message;
 	}
 
-	// Default to think-tags compatibility
-	const thinkBlock = `<think>${rtxt}</think>`;
+	// Default to tagged content compatibility
+	const thinkBlock = ``;
 	const contentText = message.content || "";
 	message.content =
 		thinkBlock + (typeof contentText === "string" ? contentText : "");

@@ -9,7 +9,7 @@ Transform OpenAI's Codex models into OpenAI-compatible endpoints using Cloudflar
 - 🔐 **OAuth2 Authentication** - Uses your OpenAI account credentials via Codex CLI
 - 🎯 **OpenAI-Compatible API** - Drop-in replacement for OpenAI endpoints
 - 📚 **OpenAI SDK Support** - Works with official OpenAI SDKs and libraries
-- 🧠 **Advanced Reasoning** - Configurable effort with multiple compatibility modes (`think-tags`, `standard`, `o3`, `r1`)
+- 🧠 **Advanced Reasoning** - Configurable effort with multiple compatibility modes (`tagged`, `standard`, `o3`, `r1`)
 - 🛡️ **API Key Security** - Optional authentication layer for endpoint access
 - 🌐 **Third-party Integration** - Compatible with Open WebUI, Cline, and more
 - ⚡ **Cloudflare Workers** - Global edge deployment with low latency
@@ -213,7 +213,7 @@ FORWARD_CLIENT_HEADERS_LIST=User-Agent,Accept-Language
 # Optional: Reasoning configuration
 REASONING_EFFORT=medium
 REASONING_SUMMARY=auto
-REASONING_COMPAT=think-tags
+REASONING_COMPAT=tagged
 
 # Optional: Debug settings
 VERBOSE=false
@@ -310,7 +310,7 @@ This will ensure your worker uses a detailed and accurate `User-Agent` string, m
 |----------|---------|-------------|
 | `REASONING_EFFORT` | `minimal` | Reasoning effort level: `minimal`, `low`, `medium`, `high` |
 | `REASONING_SUMMARY` | `auto` | Summary mode: `auto`, `concise`, `detailed`, `none` (aliases: `on` = `concise`, `off` = `none`) |
-| `REASONING_COMPAT` | `think-tags` | Output compatibility: `think-tags`, `standard`, `o3`, `legacy`, `current`, `hidden` (use `hidden` to suppress reasoning entirely) |
+| `REASONING_COMPAT` | `tagged` | Output compatibility: `tagged`, `standard`, `o3`, `legacy`, `current`, `hidden` (use `hidden` to suppress reasoning entirely) |
 
 #### Integration & Tools
 
@@ -729,7 +729,7 @@ The wrapper provides sophisticated reasoning capabilities with multiple configur
 Aliases: `on` = `concise`, `off` = `none`.
 
 #### Compatibility Formats
-- **`think-tags`**: Wrap reasoning in `<think>` tags
+- **`tagged`**: Wrap reasoning in `<think>` tags
 - **`standard` / `legacy` / `current`**: Use plain string fields: `message.reasoning_summary` and `message.reasoning`
 - **`o3`**: Use structured field: `message.reasoning = { content: [{ type: "text", text: "..." }] }`
 - **`r1`**: DeepSeek API shape — non‑streaming puts CoT into `message.reasoning_content`; streaming emits `choices[0].delta.reasoning_content`
@@ -743,7 +743,7 @@ Note: The wrapper normalizes `REASONING_COMPAT` values (trims + lowercases), so 
 ```bash
 REASONING_EFFORT=high
 REASONING_SUMMARY=on
-REASONING_COMPAT=think-tags
+REASONING_COMPAT=tagged
 ```
 
 **Request-level overrides**:
@@ -781,9 +781,9 @@ R1 (DeepSeek) structured (SSE delta):
 { "object": "chat.completion.chunk", "choices": [{ "delta": { "reasoning_content": "..." }, "finish_reason": null }] }
 ```
 
-### Non‑Streaming vs Streaming with `think-tags`
+### Non‑Streaming vs Streaming with `tagged`
 
-When `REASONING_COMPAT=think-tags` and `REASONING_SUMMARY != none` (e.g., `auto`), the wrapper surfaces reasoning differently depending on whether you request streaming.
+When `REASONING_COMPAT=tagged` and `REASONING_SUMMARY != none` (e.g., `auto`), the wrapper surfaces reasoning differently depending on whether you request streaming.
 
 - Non‑streaming (`stream=false`): The wrapper prepends a single `<think>…</think>` block to `choices[0].message.content`. This block contains the reasoning summary and the full reasoning joined with a blank line. After the block, the normal assistant answer follows. This behavior is implemented in `applyReasoningToMessage()`.
 

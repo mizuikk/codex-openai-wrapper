@@ -22,13 +22,13 @@ export async function sseTranslateChat(
     model: string,
     created: number,
     verbose: boolean = false,
-    reasoningCompat: string = "think-tags"
+    reasoningCompat: string = "tagged"
 ): Promise<ReadableStream> {
     // Normalize compatibility mode once for the whole stream
     try {
-        reasoningCompat = (reasoningCompat || "think-tags").trim().toLowerCase();
+        reasoningCompat = (reasoningCompat || "tagged").trim().toLowerCase();
     } catch {
-        reasoningCompat = "think-tags";
+        reasoningCompat = "tagged";
     }
 
     const reader = upstreamResponse.body?.getReader();
@@ -90,7 +90,7 @@ export async function sseTranslateChat(
 
 						if (kind === "response.output_text.delta") {
 							const delta = evt.delta || "";
-							if (reasoningCompat === "think-tags" && thinkOpen && !thinkClosed) {
+							if (reasoningCompat === "tagged" && thinkOpen && !thinkClosed) {
 								const closeChunk = {
 									id: responseId,
 									object: "chat.completion.chunk",
@@ -152,7 +152,7 @@ export async function sseTranslateChat(
 								}
 							}
 						} else if (kind === "response.reasoning_summary_part.added") {
-							if (reasoningCompat === "think-tags" || reasoningCompat === "o3") {
+							if (reasoningCompat === "tagged" || reasoningCompat === "o3") {
 								if (sawAnySummary) {
 									pendingSummaryParagraph = true;
 								} else {
@@ -211,7 +211,7 @@ export async function sseTranslateChat(
 									]
 								};
 								controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(chunk)}\n\n`));
-                        } else if (reasoningCompat === "think-tags") {
+                        } else if (reasoningCompat === "tagged") {
 								if (!thinkOpen && !thinkClosed) {
 									const openChunk = {
 										id: responseId,
@@ -288,7 +288,7 @@ export async function sseTranslateChat(
 							const chunk = { error: { message: err } };
 							controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(chunk)}\n\n`));
 						} else if (kind === "response.completed") {
-							if (reasoningCompat === "think-tags" && thinkOpen && !thinkClosed) {
+							if (reasoningCompat === "tagged" && thinkOpen && !thinkClosed) {
 								const closeChunk = {
 									id: responseId,
 									object: "chat.completion.chunk",

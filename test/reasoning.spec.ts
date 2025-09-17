@@ -4,7 +4,7 @@ import { applyReasoningToMessage } from '../src/reasoning';
 describe('applyReasoningToMessage', () => {
   const baseMsg = { role: 'assistant', content: 'Hello' } as any;
 
-  it('applies think-tags by default', () => {
+  it('applies tagged content by default', () => {
     const out = applyReasoningToMessage({ ...baseMsg }, 'S', 'F', 'unknown');
     expect(typeof out.content).toBe('string');
     expect(out.content!.startsWith('<think>S\n\nF</think>')).toBe(true);

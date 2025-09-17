@@ -13,7 +13,7 @@ openai.post("/v1/chat/completions", openaiAuthMiddleware(), async (c) => {
 	const verbose = c.env.VERBOSE === "true";
 	const reasoningEffort = c.env.REASONING_EFFORT || "minimal";
 	const reasoningSummary = c.env.REASONING_SUMMARY || "auto";
-	const reasoningCompat = c.env.REASONING_COMPAT || "think-tags";
+	const reasoningCompat = c.env.REASONING_COMPAT || "tagged";
 	const debugModel = c.env.DEBUG_MODEL;
 
 	// Minimal request logging
