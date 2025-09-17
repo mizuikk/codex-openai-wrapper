@@ -24,6 +24,16 @@ REASONING_COMPAT=think-tags  # Options: think-tags, standard, o3, r1, legacy, cu
 VERBOSE=false            # Options: true, false
 
 # ------------------
+# Instructions source (optional)
+# ------------------
+# Defaults to ChatMock prompt:
+#   INSTRUCTIONS_BASE_URL=https://raw.githubusercontent.com/RayBytes/ChatMock/main/prompt.md
+# Codex-specific defaults to ChatMock's codex prompt when not set.
+# Offline fallback is embedded.
+# INSTRUCTIONS_BASE_URL=
+# INSTRUCTIONS_CODEX_URL=
+
+# ------------------
 # Upstream provider overrides (optional)
 # ------------------
 
@@ -67,3 +77,12 @@ VERBOSE=false            # Options: true, false
 # FORWARD_CLIENT_HEADERS_MODE=off
 # FORWARD_CLIENT_HEADERS_LIST=User-Agent,Accept-Language
 # FORWARD_CLIENT_HEADERS_OVERRIDE={"User-Agent":"MyApp/1.2.3","Accept":"text/event-stream"}
+
+# ------------------
+# Models exposure (optional)
+# ------------------
+# Comma-separated or JSON array of model IDs listed by /v1/models
+# Examples:
+# EXPOSE_MODELS="gpt-5,gpt-5-codex,codex-mini-latest"
+# EXPOSE_MODELS='["gpt-5","gpt-5-codex","codex-mini-latest"]'
+EXPOSE_MODELS="gpt-5,gpt-5-latest,gpt-5-codex,gpt-5-codex-latest,codex-mini-latest"

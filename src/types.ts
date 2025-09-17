@@ -23,6 +23,11 @@ export interface Env {
 	CHATGPT_LOCAL_CLIENT_ID: string;
 	CHATGPT_RESPONSES_URL: string;
 	OPENAI_CODEX_AUTH: string;
+	// Optional: comma-separated or JSON array of model IDs to expose via /v1/models
+	// Examples:
+	//   EXPOSE_MODELS="gpt-5,gpt-5-codex,codex-mini-latest"
+	//   EXPOSE_MODELS='["gpt-5","gpt-5-codex","codex-mini-latest"]'
+	EXPOSE_MODELS?: string;
 	OLLAMA_API_URL?: string;
 	DEBUG_MODEL?: string;
 	REASONING_EFFORT?: ReasoningEffort;
@@ -68,6 +73,12 @@ export interface Env {
 	FORWARD_CLIENT_HEADERS_OVERRIDE?: string;
 	// Comma-separated header names (case-insensitive) used when mode = "list"
 	FORWARD_CLIENT_HEADERS_LIST?: string;
+
+	// --- Instructions source overrides ---
+	INSTRUCTIONS_BASE_URL?: string; // URL to a base prompt markdown
+	INSTRUCTIONS_CODEX_URL?: string; // URL to a codex-specific prompt markdown
+	INSTRUCTIONS_SANITIZE_PATCH?: "true" | "false"; // default true: sanitize patch markers (*** -> **_)
+	INSTRUCTIONS_SANITIZE_LEVEL?: "auto" | "basic" | "strict" | "off"; // default auto
 }
 
 export type AuthTokens = {

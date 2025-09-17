@@ -127,3 +127,21 @@ export function applyReasoningToMessage(
     }
     return message;
 }
+
+// Infer reasoning overrides from model suffix, like ChatMock:
+// e.g., "gpt-5-medium" => { effort: "medium" }
+export function extractReasoningFromModelName(model: unknown): { effort?: string; summary?: string } | undefined {
+  try {
+    const s = String(model || "").trim().toLowerCase();
+    if (!s) return undefined;
+    const parts = s.split(":", 1)[0];
+    for (const sep of ["-", "_"]) {
+      for (const effort of ["minimal", "low", "medium", "high"]) {
+        if (parts.endsWith(`${sep}${effort}`)) return { effort };
+      }
+    }
+    return undefined;
+  } catch {
+    return undefined;
+  }
+}

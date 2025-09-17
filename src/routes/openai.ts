@@ -2,9 +2,9 @@ import { Hono } from "hono";
 import { Env, ToolDefinition, ToolChoice, ChatMessage } from "../types";
 import { startUpstreamRequest } from "../upstream";
 import { normalizeModelName, convertChatMessagesToResponsesInput, convertToolsChatToResponses } from "../utils";
-import { buildReasoningParam, applyReasoningToMessage } from "../reasoning";
+import { buildReasoningParam, applyReasoningToMessage, extractReasoningFromModelName } from "../reasoning";
 import { sseTranslateChat, sseTranslateText } from "../sse";
-import { getBaseInstructions } from "../instructions";
+import { getInstructionsForModel } from "../instructions";
 import { openaiAuthMiddleware } from "../middleware/openaiAuthMiddleware";
 
 const openai = new Hono<{ Bindings: Env }>();
@@ -77,18 +77,19 @@ openai.post("/v1/chat/completions", openaiAuthMiddleware(), async (c) => {
 		inputItems.push({ type: "message", role: "user", content: [{ type: "input_text", text: payload.prompt }] });
 	}
 
-	const reasoningOverrides: { effort?: string; summary?: string } | undefined =
-		typeof payload.reasoning === "object" && payload.reasoning !== null
-			? (payload.reasoning as { effort?: string; summary?: string })
-			: undefined;
-	const reasoningParam = buildReasoningParam(reasoningEffort, reasoningSummary, reasoningOverrides);
+    const modelReasoning = extractReasoningFromModelName(payload.model);
+    const reasoningOverrides: { effort?: string; summary?: string } | undefined =
+        (typeof payload.reasoning === "object" && payload.reasoning !== null
+            ? (payload.reasoning as { effort?: string; summary?: string })
+            : undefined) || modelReasoning;
+    const reasoningParam = buildReasoningParam(reasoningEffort, reasoningSummary, reasoningOverrides);
 
 	// Auth check (minimal logging)
 	if (verbose) {
 		console.log("Authentication verified");
 	}
 
-	const instructions = await getBaseInstructions();
+    const instructions = await getInstructionsForModel(c.env, model);
 
 	const { response: upstream, error: errorResp } = await startUpstreamRequest(c.env, model, inputItems, {
 		instructions: instructions,
@@ -268,13 +269,14 @@ openai.post("/v1/completions", openaiAuthMiddleware(), async (c) => {
 	const messages: ChatMessage[] = [{ role: "user", content: String(prompt || "") }];
 	const inputItems = convertChatMessagesToResponsesInput(messages);
 
-	const reasoningOverrides =
-		typeof payload.reasoning === "object" && payload.reasoning !== null
-			? (payload.reasoning as { effort?: string; summary?: string })
-			: undefined;
-	const reasoningParam = buildReasoningParam(reasoningEffort, reasoningSummary, reasoningOverrides);
+    const modelReasoning2 = extractReasoningFromModelName(payload.model);
+    const reasoningOverrides2 =
+        (typeof payload.reasoning === "object" && payload.reasoning !== null
+            ? (payload.reasoning as { effort?: string; summary?: string })
+            : undefined) || modelReasoning2;
+    const reasoningParam = buildReasoningParam(reasoningEffort, reasoningSummary, reasoningOverrides2);
 
-	const instructions = await getBaseInstructions();
+    const instructions = await getInstructionsForModel(c.env, model);
 
 	const { response: upstream, error: errorResp } = await startUpstreamRequest(c.env, model, inputItems, {
 		instructions: instructions,
@@ -377,9 +379,38 @@ openai.post("/v1/completions", openaiAuthMiddleware(), async (c) => {
 	}
 });
 
+// Helper to parse EXPOSE_MODELS from env (CSV or JSON array)
+function parseExposeModels(input: string | undefined, fallback: string[]): string[] {
+    if (typeof input !== "string" || !input.trim()) return fallback;
+    const raw = input.trim();
+    try {
+        const arr = JSON.parse(raw);
+        if (Array.isArray(arr)) {
+            return arr
+                .map((v) => (typeof v === "string" ? v.trim() : ""))
+                .filter(Boolean);
+        }
+    } catch {
+        // not JSON, try CSV / whitespace separated
+    }
+    return raw
+        .split(/[,\s]+/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+}
+
 openai.get("/v1/models", (c) => {
-	const models = { object: "list", data: [{ id: "gpt-5", object: "model", owned_by: "owner" }] };
-	return c.json(models);
+    // Default set mirrors built-in support and aliases
+    const defaults = [
+        "gpt-5",
+        "gpt-5-latest",
+        "gpt-5-codex",
+        "gpt-5-codex-latest",
+        "codex-mini-latest",
+    ];
+    const ids = parseExposeModels(c.env.EXPOSE_MODELS, defaults);
+    const data = ids.map((id) => ({ id, object: "model", owned_by: "openai-codex" }));
+    return c.json({ object: "list", data });
 });
 
 export default openai;

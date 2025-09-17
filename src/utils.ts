@@ -1,22 +1,33 @@
 import { ChatMessage, ToolDefinition, InputItem, Tool } from "./types";
 
 export function normalizeModelName(name: string | null | undefined, debugModel: string | null | undefined): string {
-	if (typeof debugModel === "string" && debugModel.trim()) {
-		return debugModel.trim();
-	}
-	if (typeof name !== "string" || !name.trim()) {
-		return "gpt-5";
-	}
-	const base = name.split(":", 1)[0].trim();
-	const mapping: { [key: string]: string } = {
-		gpt5: "gpt-5",
-		"gpt-5-latest": "gpt-5",
-		"gpt-5": "gpt-5",
-		codex: "codex-mini-latest",
-		"codex-mini": "codex-mini-latest",
-		"codex-mini-latest": "codex-mini-latest"
-	};
-	return mapping[base] || base;
+  // Match ChatMock semantics: allow overriding via debugModel, then normalize base id
+  if (typeof debugModel === "string" && debugModel.trim()) return debugModel.trim();
+  if (typeof name !== "string" || !name.trim()) return "gpt-5";
+  let base = name.split(":", 1)[0].trim();
+  // Strip effort suffixes like "-low", "-medium", "-high", "-minimal" (also "_" variants)
+  for (const sep of ["-", "_"]) {
+    const lowered = base.toLowerCase();
+    for (const effort of ["minimal", "low", "medium", "high"]) {
+      const suffix = `${sep}${effort}`;
+      if (lowered.endsWith(suffix)) {
+        base = base.slice(0, -suffix.length);
+        break;
+      }
+    }
+  }
+  const mapping: Record<string, string> = {
+    gpt5: "gpt-5",
+    "gpt-5-latest": "gpt-5",
+    "gpt-5": "gpt-5",
+    "gpt5-codex": "gpt-5-codex",
+    "gpt-5-codex": "gpt-5-codex",
+    "gpt-5-codex-latest": "gpt-5-codex",
+    codex: "codex-mini-latest",
+    "codex-mini": "codex-mini-latest",
+    "codex-mini-latest": "codex-mini-latest",
+  };
+  return mapping[base] || base;
 }
 
 export function convertChatMessagesToResponsesInput(messages: ChatMessage[]): InputItem[] {

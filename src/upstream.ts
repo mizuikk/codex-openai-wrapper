@@ -1,7 +1,8 @@
 import { normalizeModelName } from "./utils";
 import { getRefreshedAuth, refreshAccessToken } from "./auth_kv"; // Updated import
-import { getBaseInstructions } from "./instructions";
+import { getInstructionsForModel } from "./instructions";
 import { Env, InputItem, Tool } from "./types"; // Import types
+import { ensureSessionId } from "./session";
 
 type ReasoningParam = {
 	effort?: string;
@@ -20,12 +21,9 @@ type ErrorBody = {
 	[key: string]: unknown;
 };
 
-async function generateSessionId(instructions: string | undefined, inputItems: InputItem[]): Promise<string> {
-	const content = `${instructions || ""}|${JSON.stringify(inputItems)}`;
-	const hashBuffer = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(content));
-	const hashArray = Array.from(new Uint8Array(hashBuffer));
-	return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
-}
+// ChatMock uses an ensure_session_id() that prefers client-supplied id
+// and otherwise maps a fingerprint to a random UUID. We implement the
+// compatible behavior in src/session.ts and use it here.
 
 export async function startUpstreamRequest(
 	env: Env, // Pass the environment object
@@ -50,7 +48,8 @@ export async function startUpstreamRequest(
         format: string | undefined
     ): Array<Record<string, unknown>> {
         const arr = Array.isArray(toolsIn) ? toolsIn : [];
-        const mode = (format || "nested").toLowerCase();
+        // ChatMock sends tools in a "flat" schema by default.
+        const mode = (format || "flat").toLowerCase();
         if (mode !== "flat") {
             // Default: OpenAI Responses style
             return arr as unknown as Array<Record<string, unknown>>;
@@ -83,7 +82,7 @@ export async function startUpstreamRequest(
         choice: ToolChoice | undefined,
         format: string | undefined
     ): ToolChoice | { type: string; name: string } | "auto" | "none" | undefined {
-        const mode = (format || "nested").toLowerCase();
+        const mode = (format || "flat").toLowerCase();
         if (!choice || mode !== "flat") return choice;
         if (typeof choice === "object" && (choice as any).type && (choice as any).function?.name) {
             return { type: (choice as any).type, name: (choice as any).function.name } as any;
@@ -114,10 +113,11 @@ export async function startUpstreamRequest(
 		}
 	}
 
-	const include: string[] = [];
-	if (reasoningParam?.effort !== "none") {
-		include.push("reasoning.encrypted_content");
-	}
+    const include: string[] = [];
+    // ChatMock includes reasoning.encrypted_content whenever a reasoning param is present
+    if (reasoningParam) {
+        include.push("reasoning.encrypted_content");
+    }
 
 	// Resolve upstream URL
 	let requestUrl: string;
@@ -133,9 +133,17 @@ export async function startUpstreamRequest(
 		requestUrl = env.CHATGPT_RESPONSES_URL;
 	}
 
-	const sessionId = isOllamaRequest ? undefined : await generateSessionId(instructions, inputItems);
+    // Prefer client-provided session id (X-Session-Id or session_id), else derive+cache
+    let clientSessionId: string | undefined = undefined;
+    try {
+        const src = options?.forwardedClientHeaders;
+        if (src) {
+            clientSessionId = src.get("X-Session-Id") || src.get("x-session-id") || src.get("session_id") || undefined;
+        }
+    } catch {}
+    const sessionId = isOllamaRequest ? undefined : ensureSessionId(instructions, inputItems, clientSessionId);
 
-	const baseInstructions = await getBaseInstructions();
+    const baseInstructions = await getInstructionsForModel(env, model);
 
     const requestBody = isOllamaRequest
         ? JSON.stringify(options?.ollamaPayload)
@@ -169,14 +177,14 @@ export async function startUpstreamRequest(
 			if (!options?.forwardedClientHeaders || mode === "off") return;
 
 		// Always treat header names as case-insensitive
-		const RESERVED = new Set([
-			"authorization",
-			"content-type",
-			"accept",
-			"openai-beta",
-			"chatgpt-account-id",
-			"session_id"
-		]);
+        const RESERVED = new Set([
+            "authorization",
+            "content-type",
+            "accept",
+            "openai-beta",
+            "chatgpt-account-id",
+            "session_id"
+        ]);
 
 		// Safe allowlist based on common client fingerprint headers
 		const SAFE_DEFAULT = [
@@ -224,7 +232,7 @@ export async function startUpstreamRequest(
 			}
 		})();
 
-	// After setting authentication and protocol headers, optionally override
+    // After setting authentication and protocol headers, optionally override
 	// final headers from the client using a configured list. Authorization
 	// is never overridden to avoid breaking upstream auth.
 function applyOverrideClientHeaders() {

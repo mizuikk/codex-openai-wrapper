@@ -303,6 +303,8 @@ The service will be available at `http://localhost:8787`
 | `OLLAMA_API_URL` | `http://localhost:11434` | Ollama instance URL for local model integration |
 | `DEBUG_MODEL` | - | Override model for debugging purposes |
 | `VERBOSE` | `false` | Enable detailed debug logging |
+| `INSTRUCTIONS_BASE_URL` | `https://raw.githubusercontent.com/RayBytes/ChatMock/main/prompt.md` | URL for the base system prompt. Overrides the default ChatMock prompt. |
+| `INSTRUCTIONS_CODEX_URL` | `https://raw.githubusercontent.com/RayBytes/ChatMock/main/prompt_gpt5_codex.md` | URL for the Codex-specific system prompt. Overrides the default ChatMock Codex prompt. |
 
 ### Third‑party Model Providers (Credential Forwarding)
 
