@@ -38,18 +38,8 @@ describe('normalizeCompatMode', () => {
     expect(normalizeCompatMode('  hide  ')).toBe('tagged');
   });
 
-  it('normalizes legacy to standard', () => {
-    expect(normalizeCompatMode('legacy')).toBe('standard');
-    expect(normalizeCompatMode('LEGACY')).toBe('standard');
-    expect(normalizeCompatMode('  legacy  ')).toBe('standard');
-  });
-
-  it('normalizes current to standard', () => {
-    expect(normalizeCompatMode('current')).toBe('standard');
-    expect(normalizeCompatMode('CURRENT')).toBe('standard');
-    expect(normalizeCompatMode('  current  ')).toBe('standard');
-  });
-
+  
+  
   it('passes through known modes unchanged', () => {
     expect(normalizeCompatMode('hidden')).toBe('hidden');
     expect(normalizeCompatMode('standard')).toBe('standard');

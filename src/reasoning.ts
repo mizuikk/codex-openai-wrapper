@@ -48,21 +48,15 @@ interface ChatMessage {
     [key: string]: unknown;
 }
 
-export const REASONING_COMPAT: { [key: string]: string } = {
-	legacy: "standard",
-	current: "standard",
-};
 
 /**
- * Normalize compatibility mode with alias mapping
+ * Normalize compatibility mode
  * - Trims and lowercases the input
- * - Applies alias mappings (legacy/current→standard)
- * - Returns standardized compatibility mode
+ * - Returns standardized compatibility mode or falls back to "tagged"
  */
 export function normalizeCompatMode(compat: string): string {
 	try {
-		let normalized = (compat || "tagged").trim().toLowerCase();
-		normalized = REASONING_COMPAT[normalized] || normalized;
+		const normalized = (compat || "tagged").trim().toLowerCase();
 		// If the normalized value is not a known mode, default to tagged
 		const knownModes = new Set(["tagged", "standard", "o3", "r1", "hidden"]);
 		return knownModes.has(normalized) ? normalized : "tagged";
@@ -109,7 +103,7 @@ export function applyReasoningToMessage(
 		return message;
 	}
 
-	// Standard/legacy OpenAI Chat Completions compatibility
+	// Standard OpenAI Chat Completions compatibility
 	if (normalizedCompat === "standard") {
 		if (reasoningSummaryText) {
 			message.reasoning_summary = reasoningSummaryText;

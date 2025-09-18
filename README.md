@@ -310,7 +310,7 @@ This will ensure your worker uses a detailed and accurate `User-Agent` string, m
 |----------|---------|-------------|
 | `REASONING_EFFORT` | `minimal` | Reasoning effort level: `minimal`, `low`, `medium`, `high` |
 | `REASONING_SUMMARY` | `auto` | Summary mode: `auto`, `concise`, `detailed`, `none` (aliases: `on` = `concise`, `off` = `none`) |
-| `REASONING_COMPAT` | `tagged` | Output compatibility: `tagged`, `standard`, `o3`, `r1`, `legacy`, `current`, `hidden` (use `hidden` to suppress reasoning entirely) |
+| `REASONING_COMPAT` | `tagged` | Output compatibility: `tagged`, `standard`, `o3`, `r1`, `hidden` (use `hidden` to suppress reasoning entirely) |
 
 #### Integration & Tools
 
@@ -730,7 +730,7 @@ Aliases: `on` = `concise`, `off` = `none`.
 
 #### Compatibility Formats
 - **`tagged`**: Wrap reasoning in `<think>` tags
-- **`standard` / `legacy` / `current`**: Use plain string fields: `message.reasoning_summary` and `message.reasoning`
+- **`standard`**: Use plain string fields: `message.reasoning_summary` and `message.reasoning`
 - **`o3`**: Use structured field: `message.reasoning = { content: [{ type: "text", text: "..." }] }`
 - **`r1`**: DeepSeek API shape — non‑streaming puts CoT into `message.reasoning_content`; streaming emits `choices[0].delta.reasoning_content`
 - **`hidden`**: Suppress all reasoning; only final assistant content is returned
@@ -745,8 +745,6 @@ Set `REASONING_COMPAT=all` (or `REASONING_OUTPUT_MODE=all`) to expose multiple p
 - `/r1/v1/*`       → `r1`
 - `/o3/v1/*`       → `o3`
 - `/standard/v1/*` → `standard`
-- `/legacy/v1/*`   → `legacy`
-- `/current/v1/*`  → `current`
 - `/hidden/v1/*`   → `hidden`
 
 When ALL mode is enabled, the root `/v1/*` continues to work and defaults to `tagged`.
@@ -805,7 +803,7 @@ When `REASONING_COMPAT=tagged` and `REASONING_SUMMARY != none` (e.g., `auto`), t
 
 - How to control it:
   - Hide reasoning entirely: set `REASONING_COMPAT=hidden`, or send a request override `{ "reasoning": { "summary": "none" } }`.
-  - Keep reasoning without tags: use `REASONING_COMPAT=standard` (or `legacy`/`current`) so reasoning appears in `message.reasoning_summary` / `message.reasoning` fields instead of being inlined.
+  - Keep reasoning without tags: use `REASONING_COMPAT=standard` so reasoning appears in `message.reasoning_summary` / `message.reasoning` fields instead of being inlined.
   - Keep tags but shorten content: set `REASONING_SUMMARY=concise`, or request `{ "reasoning": { "summary": "concise" } }`.
 
 Example (non‑streaming) response snippet:

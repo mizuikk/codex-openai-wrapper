@@ -52,11 +52,7 @@ app.route("/o3", openai);
 app.use("/standard/*", withCompat("standard"));
 app.route("/standard", openai);
 
-app.use("/legacy/*", withCompat("legacy"));
-app.route("/legacy", openai);
 
-app.use("/current/*", withCompat("current"));
-app.route("/current", openai);
 
 app.use("/hidden/*", withCompat("hidden"));
 app.route("/hidden", openai);
