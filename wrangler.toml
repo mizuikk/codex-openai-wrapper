@@ -4,6 +4,8 @@ compatibility_date = "2024-09-23"
 
 compatibility_flags = ["nodejs_compat"]
 
+preview_urls = false
+
 # --- KV Namespaces ---
 kv_namespaces = [
   { binding = "KV", id = "2e33dd7fc260405d906d61636cb82b61" }
