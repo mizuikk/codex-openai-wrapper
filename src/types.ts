@@ -29,9 +29,9 @@ export interface Env {
 	EXPOSE_MODELS?: string;
 	OLLAMA_API_URL?: string;
 	DEBUG_MODEL?: string;
-	REASONING_EFFORT?: ReasoningEffort;
-	REASONING_SUMMARY?: ReasoningSummary;
-	REASONING_COMPAT?: ReasoningCompat;
+    REASONING_EFFORT?: ReasoningEffort;
+    REASONING_SUMMARY?: ReasoningSummary;
+    REASONING_OUTPUT_MODE?: ReasoningCompat; // unified config name
 	VERBOSE?: VerboseMode;
 
 	// --- Upstream provider overrides ---

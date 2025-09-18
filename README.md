@@ -213,7 +213,7 @@ FORWARD_CLIENT_HEADERS_LIST=User-Agent,Accept-Language
 # Optional: Reasoning configuration
 REASONING_EFFORT=medium
 REASONING_SUMMARY=auto
-REASONING_COMPAT=openai
+REASONING_OUTPUT_MODE=openai
 
 # Optional: Debug settings
 VERBOSE=false
@@ -310,7 +310,7 @@ This will ensure your worker uses a detailed and accurate `User-Agent` string, m
 |----------|---------|-------------|
 | `REASONING_EFFORT` | `minimal` | Reasoning effort level: `minimal`, `low`, `medium`, `high` |
 | `REASONING_SUMMARY` | `auto` | Summary mode: `auto`, `concise`, `detailed`, `none` (aliases: `on` = `concise`, `off` = `none`) |
-| `REASONING_COMPAT` | `openai` | Output compatibility: `openai`, `tagged`, `o3`, `r1`, `hidden` (use `hidden` to suppress reasoning entirely) |
+| `REASONING_OUTPUT_MODE` | `openai` | Output compatibility: `openai`, `tagged`, `o3`, `r1`, `hidden` (use `hidden` to suppress reasoning entirely) |
 
 #### Integration & Tools
 
@@ -735,11 +735,10 @@ Aliases: `on` = `concise`, `off` = `none`.
 - **`r1`**: DeepSeek API shape — non‑streaming puts CoT into `message.reasoning_content`; streaming emits `choices[0].delta.reasoning_content`
 - **`hidden`**: Suppress all reasoning; only final assistant content is returned
 
-Note: The wrapper normalizes `REASONING_COMPAT` values (trims + lowercases). Accepted values: `tagged`, `openai`, `o3`, `r1`, `hidden`, `all`.
 
 #### "all" Mode (Multi-endpoint Compatibility)
 
-Set `REASONING_COMPAT=all` (or `REASONING_OUTPUT_MODE=all`) to expose multiple prefixed endpoints simultaneously, each locked to a specific compatibility format:
+Set `REASONING_OUTPUT_MODE=all`  to expose multiple prefixed endpoints simultaneously, each locked to a specific compatibility format:
 
 - `/tagged/v1/*`   → `tagged`
 - `/r1/v1/*`       → `r1`
@@ -755,7 +754,7 @@ When ALL mode is enabled, the root `/v1/*` continues to work and defaults to `op
 ```bash
 REASONING_EFFORT=high
 REASONING_SUMMARY=on
-REASONING_COMPAT=tagged
+REASONING_OUTPUT_MODE=tagged
 ```
 
 **Request-level overrides**:
@@ -794,15 +793,15 @@ R1 (DeepSeek) structured (SSE delta):
 
 ### Non‑Streaming vs Streaming with `tagged`
 
-When `REASONING_COMPAT=tagged` and `REASONING_SUMMARY != none` (e.g., `auto`), the wrapper surfaces reasoning differently depending on whether you request streaming.
+When `REASONING_OUTPUT_MODE=tagged` and `REASONING_SUMMARY != none` (e.g., `auto`), the wrapper surfaces reasoning differently depending on whether you request streaming.
 
 - Non‑streaming (`stream=false`): The wrapper prepends a single `<think>…</think>` block to `choices[0].message.content`. This block contains the reasoning summary and the full reasoning joined with a blank line. After the block, the normal assistant answer follows. This behavior is implemented in `applyReasoningToMessage()`.
 
 - Streaming (`stream=true`): On the first reasoning delta the stream emits `<think>`, then streams reasoning deltas inside the tag. Immediately before the first visible answer delta (`response.output_text.delta`), the stream emits `</think>` and continues with the user‑visible answer. This behavior is implemented in `sseTranslateChat()`.
 
 - How to control it:
-  - Hide reasoning entirely: set `REASONING_COMPAT=hidden`, or send a request override `{ "reasoning": { "summary": "none" } }`.
-  - Keep reasoning without tags: use `REASONING_COMPAT=openai` so reasoning appears as `message.reasoning_content` instead of being inlined.
+  - Hide reasoning entirely: set `REASONING_OUTPUT_MODE=hidden`, or send a request override `{ "reasoning": { "summary": "none" } }`.
+  - Keep reasoning without tags: use `REASONING_OUTPUT_MODE=openai` so reasoning appears as `message.reasoning_content` instead of being inlined.
   - Keep tags but shorten content: set `REASONING_SUMMARY=concise`, or request `{ "reasoning": { "summary": "concise" } }`.
 
 Example (non‑streaming) response snippet:
@@ -999,3 +998,7 @@ Any other form of distribution, sublicensing, or commercial use is strictly proh
 **⚠️ Important**: This project uses OpenAI's Codex API which may have usage limits and terms of service. Please ensure compliance with OpenAI's policies when using this wrapper.
 
 [![Star History Chart](https://api.star-history.com/svg?repos=GewoonJaap/codex-openai-wrapper&type=Date)](https://www.star-history.com/#GewoonJaap/codex-openai-wrapper&Date)
+
+
+
+

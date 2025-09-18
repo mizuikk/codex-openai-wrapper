@@ -13,26 +13,15 @@ openai.post("/v1/chat/completions", openaiAuthMiddleware(), async (c) => {
 	const verbose = c.env.VERBOSE === "true";
 	const reasoningEffort = c.env.REASONING_EFFORT || "minimal";
 	const reasoningSummary = c.env.REASONING_SUMMARY || "auto";
-	// Allow per-route override via context, fall back to env (support alias REASONING_OUTPUT_MODE)
+    // Allow per-route override via context, fall back to env
     let reasoningCompat =
-        (((c as any).get("REASONING_COMPAT_OVERRIDE") as string | undefined) ||
+        (((c as any).get("REASONING_OUTPUT_MODE_OVERRIDE") as string | undefined) ||
             ((c.env as any).REASONING_OUTPUT_MODE as string | undefined) ||
-            (c.env.REASONING_COMPAT as unknown as string | undefined) ||
             "openai");
-	if (reasoningCompat === "all") {
-		// Default the root /v1 to openai when running in ALL mode
-		reasoningCompat = "openai";
-	}
-    // Strictly reject legacy/current modes (no compatibility kept)
-	{
-		const compatRaw = String(reasoningCompat || "").trim().toLowerCase();
-		if (compatRaw === "legacy" || compatRaw === "current" || compatRaw === "standard") {
-			return c.json(
-				{ error: { message: "REASONING_COMPAT/REASONING_OUTPUT_MODE no longer supports legacy/current/standard. Use openai." } },
-				400
-			);
-		}
-	}
+    if (String(reasoningCompat).trim().toLowerCase() === "all") {
+        // Default the root /v1 to openai when running in ALL mode
+        reasoningCompat = "openai";
+    }
 	const debugModel = c.env.DEBUG_MODEL;
 
     // Upstream cancellation wiring: tie client request lifecycle to upstream fetch.
@@ -273,23 +262,7 @@ openai.post("/v1/completions", openaiAuthMiddleware(), async (c) => {
 	const reasoningEffort = c.env.REASONING_EFFORT || "minimal";
 	const reasoningSummary = c.env.REASONING_SUMMARY || "auto";
 
-    // Strictly reject legacy/current modes (no compatibility kept)
-	{
-    const compatRaw = String(
-            (((c as any).get("REASONING_COMPAT_OVERRIDE") as string | undefined) ||
-                ((c.env as any).REASONING_OUTPUT_MODE as string | undefined) ||
-                (c.env.REASONING_COMPAT as unknown as string | undefined) ||
-                "openai") || ""
-        )
-			.trim()
-			.toLowerCase();
-		if (compatRaw === "legacy" || compatRaw === "current" || compatRaw === "standard") {
-			return c.json(
-				{ error: { message: "REASONING_COMPAT/REASONING_OUTPUT_MODE no longer supports legacy/current/standard. Use openai." } },
-				400
-			);
-		}
-	}
+    // No legacy/current/standard handling (removed)
 
 	// Minimal request logging
 	if (verbose) {
@@ -343,7 +316,7 @@ openai.post("/v1/completions", openaiAuthMiddleware(), async (c) => {
                 return undefined;
             }
         })()
-	});
+    });
 
 	if (errorResp) {
 		if (verbose) {

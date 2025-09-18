@@ -20,18 +20,16 @@ OLLAMA_API_URL=http://localhost:11434
 DEBUG_MODEL=
 REASONING_EFFORT=medium  # Options: minimal, low, medium, high
 REASONING_SUMMARY=auto   # Options: auto, concise, detailed, none (on=concise, off=none)
-# Options: tagged, openai, o3, r1, hidden, all
+# Reasoning output mode (unified name): openai (default), tagged, o3, r1, hidden, all
 # When set to "all", the worker exposes multiple prefixed endpoints with per-endpoint
 # compatibility:
 #   /tagged/v1/*   -> tagged
 #   /r1/v1/*       -> r1
 #   /o3/v1/*       -> o3
-#   /openai/v1/* -> openai
+#   /openai/v1/*   -> openai
 #   /hidden/v1/*   -> hidden
 # The root /v1/* continues to work and defaults to openai under ALL mode.
-REASONING_COMPAT=openai
-# Alias supported as well (if set):
-# REASONING_OUTPUT_MODE=openai
+REASONING_OUTPUT_MODE=openai
 VERBOSE=false            # Options: true, false
 
 # ------------------

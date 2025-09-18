@@ -45,7 +45,7 @@ OPENAI_CODEX_AUTH={"tokens":{"access_token":"your_token","account_id":"your_acco
 # Optional: Reasoning Configuration
 REASONING_EFFORT=medium
 REASONING_SUMMARY=auto
-REASONING_COMPAT=openai
+REASONING_OUTPUT_MODE=openai
 
 # Optional: Debugging
 VERBOSE=false
@@ -86,7 +86,7 @@ The service will be available at `http://localhost:8787`
 | `OPENAI_CODEX_AUTH` | JSON string with access tokens | ✅ | - |
 | `REASONING_EFFORT` | AI reasoning depth: `minimal`, `low`, `medium`, `high` | ❌ | `minimal` |
 | `REASONING_SUMMARY` | Summary mode: `auto`, `concise`, `detailed`, `none` (aliases: `on`=concise, `off`=none) | ❌ | `auto` |
-| `REASONING_COMPAT` | Compatibility mode: `openai`, `tagged`, `o3`, `r1`, `legacy`, `current`, `hidden` | ❌ | `openai` |
+| `REASONING_OUTPUT_MODE` | Compatibility mode: `openai`, `tagged`, `o3`, `r1`, `hidden`, `all` | ❌ | `openai` |
 | `VERBOSE` | Enable detailed logging: `true`, `false` | ❌ | `false` |
 | `DEBUG_MODEL` | Override model for debugging | ❌ | - |
 

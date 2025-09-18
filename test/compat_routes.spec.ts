@@ -5,8 +5,8 @@ import app from '../src/index';
 const IncomingRequest = Request<unknown, IncomingRequestCfProperties>;
 
 describe('compat route mounting', () => {
-  it('serves /tagged/v1/models when REASONING_COMPAT=all', async () => {
-    const env = { ...baseEnv, REASONING_COMPAT: 'all' } as any;
+  it('serves /tagged/v1/models when REASONING_OUTPUT_MODE=all', async () => {
+    const env = { ...baseEnv, REASONING_OUTPUT_MODE: 'all' } as any;
     const ctx = createExecutionContext();
     const req = new IncomingRequest('http://example.com/tagged/v1/models');
     const res = await app.fetch(req, env, ctx);
@@ -16,8 +16,8 @@ describe('compat route mounting', () => {
     expect(json).toHaveProperty('object', 'list');
   });
 
-  it('404 for /tagged/v1/models when REASONING_COMPAT!=all', async () => {
-    const env = { ...baseEnv, REASONING_COMPAT: 'tagged' } as any;
+  it('404 for /tagged/v1/models when REASONING_OUTPUT_MODE!=all', async () => {
+    const env = { ...baseEnv, REASONING_OUTPUT_MODE: 'tagged' } as any;
     const ctx = createExecutionContext();
     const req = new IncomingRequest('http://example.com/tagged/v1/models');
     const res = await app.fetch(req, env, ctx);
@@ -25,4 +25,3 @@ describe('compat route mounting', () => {
     expect(res.status).toBe(404);
   });
 });
-

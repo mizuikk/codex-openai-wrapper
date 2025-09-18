@@ -52,17 +52,17 @@ interface ChatMessage {
 /**
  * Normalize compatibility mode
  * - Trims and lowercases the input
- * - Returns standardized compatibility mode or falls back to "tagged"
+ * - Returns standardized compatibility mode or falls back to "openai"
  */
 export function normalizeCompatMode(compat: string): string {
-	try {
-		const normalized = (compat || "tagged").trim().toLowerCase();
-		// If the normalized value is not a known mode, default to tagged
-		const knownModes = new Set(["tagged", "openai", "o3", "r1", "hidden"]);
-		return knownModes.has(normalized) ? normalized : "tagged";
-	} catch {
-		return "tagged";
-	}
+    try {
+        const normalized = (compat || "openai").trim().toLowerCase();
+        // If the normalized value is not a known mode, default to openai
+        const knownModes = new Set(["tagged", "openai", "o3", "r1", "hidden"]);
+        return knownModes.has(normalized) ? normalized : "openai";
+    } catch {
+        return "openai";
+    }
 }
 
 export function applyReasoningToMessage(

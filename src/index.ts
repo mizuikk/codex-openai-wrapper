@@ -26,15 +26,15 @@ app.get("/health", (c) => c.json({ status: "ok" }));
 app.route("/", openai); // Default: /v1/*
 app.route("/api", ollama); // Mount the Ollama routes under /api
 
-// Helper: per-prefix compat override middleware (only active when REASONING_COMPAT=all)
+// Helper: per-prefix compat override middleware (only active when REASONING_OUTPUT_MODE=all)
 const withCompat = (mode: ReasoningCompat | string) =>
   async (c: any, next: () => Promise<void>) => {
-    const compatAll = (c.env && (c.env.REASONING_COMPAT === "all" || (c.env as any).REASONING_OUTPUT_MODE === "all"));
+    const compatAll = (c.env && ((c.env as any).REASONING_OUTPUT_MODE === "all"));
     if (!compatAll) {
       // If ALL mode is not enabled, pretend route does not exist
       return c.notFound();
     }
-    c.set("REASONING_COMPAT_OVERRIDE", String(mode));
+    c.set("REASONING_OUTPUT_MODE_OVERRIDE", String(mode));
     await next();
   };
 
