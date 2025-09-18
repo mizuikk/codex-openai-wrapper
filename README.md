@@ -213,7 +213,7 @@ FORWARD_CLIENT_HEADERS_LIST=User-Agent,Accept-Language
 # Optional: Reasoning configuration
 REASONING_EFFORT=medium
 REASONING_SUMMARY=auto
-REASONING_COMPAT=tagged
+REASONING_COMPAT=openai
 
 # Optional: Debug settings
 VERBOSE=false
@@ -310,7 +310,7 @@ This will ensure your worker uses a detailed and accurate `User-Agent` string, m
 |----------|---------|-------------|
 | `REASONING_EFFORT` | `minimal` | Reasoning effort level: `minimal`, `low`, `medium`, `high` |
 | `REASONING_SUMMARY` | `auto` | Summary mode: `auto`, `concise`, `detailed`, `none` (aliases: `on` = `concise`, `off` = `none`) |
-| `REASONING_COMPAT` | `tagged` | Output compatibility: `tagged`, `openai`, `o3`, `r1`, `hidden` (use `hidden` to suppress reasoning entirely) |
+| `REASONING_COMPAT` | `openai` | Output compatibility: `openai`, `tagged`, `o3`, `r1`, `hidden` (use `hidden` to suppress reasoning entirely) |
 
 #### Integration & Tools
 

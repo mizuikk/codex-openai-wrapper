@@ -27,7 +27,7 @@ export async function sseTranslateChat(
     model: string,
     created: number,
     verbose: boolean = false,
-    reasoningCompat: string = "tagged"
+    reasoningCompat: string = "openai"
 ): Promise<ReadableStream> {
     // Normalize compatibility mode once for the whole stream
     reasoningCompat = normalizeCompatMode(reasoningCompat);
@@ -188,7 +188,12 @@ export async function sseTranslateChat(
                                 sawAnySummary = true;
                             }
                         }
-                    } else if (kind === "response.reasoning_summary_text.delta" || kind === "response.reasoning_text.delta") {
+                    } else if (
+                        kind === "response.reasoning_summary_text.delta" ||
+                        kind === "response.reasoning_text.delta" ||
+                        kind === "response.reasoning_summary.delta" ||
+                        kind === "response.reasoning.delta"
+                    ) {
                         ensureRole();
                         const deltaTxt = evt.delta || "";
                         // Hide mode: swallow all reasoning deltas
@@ -210,7 +215,7 @@ export async function sseTranslateChat(
                             };
                             controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(chunk)}\n\n`));
                         } else if (reasoningCompat === "o3") {
-                            if (kind === "response.reasoning_summary_text.delta" && pendingSummaryParagraph) {
+                            if ((kind === "response.reasoning_summary_text.delta" || kind === "response.reasoning_summary.delta") && pendingSummaryParagraph) {
                                 const nlChunk = {
                                     id: responseId,
                                     object: "chat.completion.chunk",
@@ -243,7 +248,7 @@ export async function sseTranslateChat(
                             controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(chunk)}\n\n`));
                         } else if (reasoningCompat === "openai") {
                             // Compatible: stream reasoning as plain `reasoning_content`
-                            if (kind === "response.reasoning_summary_text.delta" && pendingSummaryParagraph) {
+                            if ((kind === "response.reasoning_summary_text.delta" || kind === "response.reasoning_summary.delta") && pendingSummaryParagraph) {
                                 const nlChunk = {
                                     id: responseId,
                                     object: "chat.completion.chunk",
@@ -287,7 +292,7 @@ export async function sseTranslateChat(
                                 thinkOpen = true;
                             }
                             if (thinkOpen && !thinkClosed) {
-                                if (kind === "response.reasoning_summary_text.delta" && pendingSummaryParagraph) {
+                                if ((kind === "response.reasoning_summary_text.delta" || kind === "response.reasoning_summary.delta") && pendingSummaryParagraph) {
                                     const nlChunk = {
                                         id: responseId,
                                         object: "chat.completion.chunk",

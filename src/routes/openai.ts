@@ -14,16 +14,16 @@ openai.post("/v1/chat/completions", openaiAuthMiddleware(), async (c) => {
 	const reasoningEffort = c.env.REASONING_EFFORT || "minimal";
 	const reasoningSummary = c.env.REASONING_SUMMARY || "auto";
 	// Allow per-route override via context, fall back to env (support alias REASONING_OUTPUT_MODE)
-	let reasoningCompat =
-		(((c as any).get("REASONING_COMPAT_OVERRIDE") as string | undefined) ||
-			((c.env as any).REASONING_OUTPUT_MODE as string | undefined) ||
-			(c.env.REASONING_COMPAT as unknown as string | undefined) ||
-			"tagged");
+    let reasoningCompat =
+        (((c as any).get("REASONING_COMPAT_OVERRIDE") as string | undefined) ||
+            ((c.env as any).REASONING_OUTPUT_MODE as string | undefined) ||
+            (c.env.REASONING_COMPAT as unknown as string | undefined) ||
+            "openai");
 	if (reasoningCompat === "all") {
 		// Default the root /v1 to openai when running in ALL mode
 		reasoningCompat = "openai";
 	}
-	// Strictly reject legacy/current modes (no compatibility kept)
+    // Strictly reject legacy/current modes (no compatibility kept)
 	{
 		const compatRaw = String(reasoningCompat || "").trim().toLowerCase();
 		if (compatRaw === "legacy" || compatRaw === "current" || compatRaw === "standard") {
@@ -273,14 +273,14 @@ openai.post("/v1/completions", openaiAuthMiddleware(), async (c) => {
 	const reasoningEffort = c.env.REASONING_EFFORT || "minimal";
 	const reasoningSummary = c.env.REASONING_SUMMARY || "auto";
 
-	// Strictly reject legacy/current modes (no compatibility kept)
+    // Strictly reject legacy/current modes (no compatibility kept)
 	{
-		const compatRaw = String(
-			(((c as any).get("REASONING_COMPAT_OVERRIDE") as string | undefined) ||
-				((c.env as any).REASONING_OUTPUT_MODE as string | undefined) ||
-				(c.env.REASONING_COMPAT as unknown as string | undefined) ||
-				"tagged") || ""
-		)
+    const compatRaw = String(
+            (((c as any).get("REASONING_COMPAT_OVERRIDE") as string | undefined) ||
+                ((c.env as any).REASONING_OUTPUT_MODE as string | undefined) ||
+                (c.env.REASONING_COMPAT as unknown as string | undefined) ||
+                "openai") || ""
+        )
 			.trim()
 			.toLowerCase();
 		if (compatRaw === "legacy" || compatRaw === "current" || compatRaw === "standard") {

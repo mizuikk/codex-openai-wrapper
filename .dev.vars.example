@@ -29,9 +29,9 @@ REASONING_SUMMARY=auto   # Options: auto, concise, detailed, none (on=concise, o
 #   /openai/v1/* -> openai
 #   /hidden/v1/*   -> hidden
 # The root /v1/* continues to work and defaults to openai under ALL mode.
-REASONING_COMPAT=tagged
+REASONING_COMPAT=openai
 # Alias supported as well (if set):
-# REASONING_OUTPUT_MODE=tagged
+# REASONING_OUTPUT_MODE=openai
 VERBOSE=false            # Options: true, false
 
 # ------------------
