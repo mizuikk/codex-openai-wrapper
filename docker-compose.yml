@@ -21,9 +21,9 @@ services:
     environment:
       # Set NODE_ENV for development
       - NODE_ENV=development
-    # Load environment variables from .dev.vars file (if exists)
-    env_file:
-      - .dev.vars
+      # Scheme B defaults: do not generate [vars], but emit .dev.vars from env
+      - GENERATE_WRANGLER_VARS=0
+      - WRANGLER_EMIT_DEV_VARS=1
     # Restart policy
     restart: unless-stopped
     # Health check

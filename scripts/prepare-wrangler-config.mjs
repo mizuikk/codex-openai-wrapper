@@ -82,13 +82,15 @@ function injectIdsIntoKvBlock(kvBlock) {
   return kvBlock.replace(/\{[^}]*\}/g, () => updatedTables[idx++]);
 }
 
+function isDocker() {
+  try { return fsSync.existsSync('/.dockerenv'); } catch { return false; }
+}
+
 function shouldGenerateVarsBlock() {
   const override = process.env.GENERATE_WRANGLER_VARS;
   if (override === '1' || override === 'true') return true;
   if (override === '0' || override === 'false') return false;
-  try {
-    if (fsSync.existsSync('/.dockerenv')) return true;
-  } catch {}
+  // Default: In Docker, DO NOT generate [vars] (to keep CLI output hidden via .dev.vars); elsewhere false as well
   return false;
 }
 
@@ -198,6 +200,56 @@ async function main() {
   const finalToml = header + updated + (varsBlock ? `\n# --- Vars (generated from environment) ---\n${varsBlock}` : '');
   await fs.writeFile(outPath, finalToml, 'utf8');
   log(`Wrote ${path.relative(root, outPath)}`);
+
+  // Optional: When not generating [vars], create a .dev.vars file from the
+  // current environment so Wrangler hides values in its console output.
+  // Enable by setting WRANGLER_EMIT_DEV_VARS=1 (or HIDE_VARS_IN_LOG=1).
+  // This is most useful for `docker run -e ...` scenarios.
+  const overrideEmit = process.env.WRANGLER_EMIT_DEV_VARS;
+  let wantEmitDevVars = (overrideEmit === '1' || overrideEmit === 'true' || process.env.HIDE_VARS_IN_LOG === '1');
+  if (overrideEmit === '0' || overrideEmit === 'false') wantEmitDevVars = false;
+  // Default: in Docker and when not generating [vars], emit .dev.vars from current env
+  if (!varsBlock && overrideEmit === undefined && isDocker()) {
+    wantEmitDevVars = true;
+  }
+  if (!varsBlock && wantEmitDevVars) {
+    try {
+      if (!(await fileExists(devVarsPath))) {
+        // Reuse the same KEYS as buildVarsSectionFromEnv()
+        const lines = [];
+        const KEYS = [
+          'OPENAI_API_KEY', 'CHATGPT_LOCAL_CLIENT_ID', 'CHATGPT_RESPONSES_URL', 'OPENAI_CODEX_AUTH',
+          'EXPOSE_MODELS', 'OLLAMA_API_URL', 'DEBUG_MODEL',
+          'REASONING_EFFORT', 'REASONING_SUMMARY', 'REASONING_OUTPUT_MODE', 'VERBOSE',
+          'UPSTREAM_RESPONSES_URL', 'UPSTREAM_BASE_URL', 'UPSTREAM_WIRE_API_PATH',
+          'UPSTREAM_AUTH_MODE', 'UPSTREAM_AUTH_ENV_KEY', 'UPSTREAM_API_KEY',
+          'UPSTREAM_AUTH_HEADER', 'UPSTREAM_AUTH_SCHEME', 'UPSTREAM_TOOLS_FORMAT',
+          'FORWARD_CLIENT_HEADERS_MODE', 'FORWARD_CLIENT_HEADERS_OVERRIDE', 'FORWARD_CLIENT_HEADERS_OVERRIDE_CODEX',
+          'FORWARD_CLIENT_HEADERS_LIST', 'FORWARD_CLIENT_HEADERS_CODEX_VERSION',
+          'CODEX_INTERNAL_ORIGINATOR_OVERRIDE', 'FORWARD_CLIENT_HEADERS_CODEX_ORIGINATOR',
+          'FORWARD_CLIENT_HEADERS_CODEX_OS_TYPE', 'FORWARD_CLIENT_HEADERS_CODEX_OS_VERSION', 'FORWARD_CLIENT_HEADERS_CODEX_ARCH',
+          'FORWARD_CLIENT_HEADERS_CODEX_EDITOR',
+          'TERM_PROGRAM', 'TERM_PROGRAM_VERSION', 'WEZTERM_VERSION', 'KONSOLE_VERSION', 'VTE_VERSION', 'WT_SESSION',
+          'KITTY_WINDOW_ID', 'ALACRITTY_SOCKET', 'TERM',
+          'INSTRUCTIONS_BASE_URL', 'INSTRUCTIONS_CODEX_URL', 'INSTRUCTIONS_SANITIZE_PATCH', 'INSTRUCTIONS_SANITIZE_LEVEL',
+        ];
+        for (const k of KEYS) {
+          const v = process.env[k];
+          if (typeof v === 'string' && v.length > 0) {
+            // Preserve quotes for values that already contain commas/spaces
+            const needsQuote = /[\s,]/.test(v) && !(v.startsWith('"') && v.endsWith('"'));
+            lines.push(`${k}=${needsQuote ? '"' + v.replace(/"/g, '\\"') + '"' : v}`);
+          }
+        }
+        if (lines.length > 0) {
+          await fs.writeFile(devVarsPath, lines.join('\n') + '\n', 'utf8');
+          log(`Emitted .dev.vars from environment with ${lines.length} keys (for hidden CLI output)`);
+        }
+      }
+    } catch (e) {
+      log(`WARN: failed emitting .dev.vars from env: ${e?.message || e}`);
+    }
+  }
 }
 
 main().catch((err) => {
