@@ -1,141 +1,159 @@
-# Environment variables for local development
-# Copy this file to .dev.vars and fill in your values
+# ------------------------------------------------------------------------------
+# .dev.vars.example — Sample environment for local development
+# Copy to ".dev.vars" and edit values. Lines starting with "#" are ignored.
+# This file is read by scripts/prepare-wrangler-config.mjs during `npm run dev`
+# and by Docker dev runtime (wrangler dev). Values become Worker bindings via
+# a generated .wrangler.generated.toml.
+# ------------------------------------------------------------------------------
 
-# Cloudflare KV Namespace ID for binding `KV`
-# Used by scripts/prepare-wrangler-config.mjs to generate .wrangler.generated.toml
-# Accepts any of: KV_ID, KV_NAMESPACE_ID (first found wins)
-KV_ID=
+# ------------------------------------------------------------------------------
+# 1) Client access control (required for non-public endpoints)
+# - Your clients must send: Authorization: Bearer <OPENAI_API_KEY>
+# - If this is empty or missing, auth is skipped (all endpoints open).
+# ------------------------------------------------------------------------------
+OPENAI_API_KEY=dev-local-access-key
 
-# OpenAI API Key for client authentication
-# This key is required for clients to access the proxy endpoints
-OPENAI_API_KEY=sk-your-openai-api-key-here
-
-# ChatGPT API Configuration
-CHATGPT_LOCAL_CLIENT_ID=your_client_id_here
+# ------------------------------------------------------------------------------
+# 2) Upstream provider selection & auth (pick ONE strategy)
+# Default: ChatGPT Responses endpoint with OAuth tokens in OPENAI_CODEX_AUTH.
+#    - UPSTREAM_AUTH_MODE:
+#        chatgpt_token     -> use OAuth tokens in OPENAI_CODEX_AUTH (default)
+#        apikey_env        -> send UPSTREAM_API_KEY
+#        apikey_auth_json  -> send OPENAI_CODEX_AUTH[UPSTREAM_AUTH_ENV_KEY] (default key: OPENAI_API_KEY)
+# ------------------------------------------------------------------------------
+# Base ChatGPT Responses URL (used unless UPSTREAM_RESPONSES_URL or UPSTREAM_BASE_URL is set)
 CHATGPT_RESPONSES_URL=https://chatgpt.com/backend-api/codex/responses
+# Client ID used in token refresh flow (kept for compatibility)
+CHATGPT_LOCAL_CLIENT_ID=app_EMoamEEZ73f0CkXaXp7hrann
 
-# Authentication - paste your auth.json content here (as a JSON string)
-# You can get this by running the Codex login and copying the auth.json content
-OPENAI_CODEX_AUTH={"OPENAI_API_KEY": null, "tokens": {"id_token": "...", "access_token": "...", "refresh_token": "...", "account_id": "..."}, "last_refresh": "..."}
+# OAuth tokens and optional API key stored as a single-line JSON
+# Fill these values after performing your auth flow.
+OPENAI_CODEX_AUTH={"OPENAI_API_KEY":null,"tokens":{"id_token":"...","access_token":"...","refresh_token":"...","account_id":"..."},"last_refresh":"..."}
 
-# Ollama API endpoint (for local Ollama instance)
+# Strategy A (default): use ChatGPT OAuth tokens from OPENAI_CODEX_AUTH
+UPSTREAM_AUTH_MODE=chatgpt_token
+
+# Strategy B: use a direct upstream API key from env
+#UPSTREAM_AUTH_MODE=apikey_env
+#UPSTREAM_API_KEY=sk-your-upstream-api-key
+#UPSTREAM_AUTH_HEADER=Authorization
+#UPSTREAM_AUTH_SCHEME=Bearer
+
+# Strategy C: use key embedded inside OPENAI_CODEX_AUTH JSON
+#UPSTREAM_AUTH_MODE=apikey_auth_json
+#UPSTREAM_AUTH_ENV_KEY=OPENAI_API_KEY
+
+# Optional: Override upstream URL selection
+# Highest priority:
+#UPSTREAM_RESPONSES_URL=https://api.example.com/v1/responses
+# Or: base + (optional) wire path (default "/responses"):
+#UPSTREAM_BASE_URL=https://api.example.com/v1
+#UPSTREAM_WIRE_API_PATH=/responses
+
+# Tools wire-format compatibility for upstream (recommended: nested for OpenAI)
+UPSTREAM_TOOLS_FORMAT=nested
+
+# ------------------------------------------------------------------------------
+# 3) Reasoning controls
+# ------------------------------------------------------------------------------
+# Effort: minimal | low | medium | high
+REASONING_EFFORT=low
+# Summary: auto | concise | detailed | none  (aliases: on=concise, off=none)
+REASONING_SUMMARY=auto
+# Output mode: openai (default) | tagged | o3 | r1 | hidden | all
+# When set to "all", the worker additionally exposes:
+#   /tagged/v1/*, /r1/v1/*, /o3/v1/*, /openai/v1/*, /hidden/v1/*
+REASONING_OUTPUT_MODE=openai
+
+# ------------------------------------------------------------------------------
+# 4) Instructions (prompt) source
+# Provide custom instruction URLs or leave empty to use built-in defaults.
+# ------------------------------------------------------------------------------
+#INSTRUCTIONS_BASE_URL=
+#INSTRUCTIONS_CODEX_URL=
+#INSTRUCTIONS_SANITIZE_PATCH=true
+#INSTRUCTIONS_SANITIZE_LEVEL=auto  # auto | basic | strict | off
+
+# ------------------------------------------------------------------------------
+# 5) Ollama integration (optional)
+# Enables pass-through routes under /api/* (e.g., POST /api/chat, GET /api/tags)
+# ------------------------------------------------------------------------------
+# Local default:
 OLLAMA_API_URL=http://localhost:11434
 
-# Optional debugging and reasoning settings
-DEBUG_MODEL=
-REASONING_EFFORT=medium  # Options: minimal, low, medium, high
-REASONING_SUMMARY=auto   # Options: auto, concise, detailed, none (on=concise, off=none)
-# Reasoning output mode (unified name): openai (default), tagged, o3, r1, hidden, all
-# When set to "all", the worker exposes multiple prefixed endpoints with per-endpoint
-# compatibility:
-#   /tagged/v1/*   -> tagged
-#   /r1/v1/*       -> r1
-#   /o3/v1/*       -> o3
-#   /openai/v1/*   -> openai
-#   /hidden/v1/*   -> hidden
-# The root /v1/* continues to work and defaults to openai under ALL mode.
-REASONING_OUTPUT_MODE=openai
-VERBOSE=false            # Options: true, false
-
-# ------------------
-# Instructions source (optional)
-# ------------------
-# Defaults to ChatMock prompt:
-#   INSTRUCTIONS_BASE_URL=https://raw.githubusercontent.com/RayBytes/ChatMock/main/prompt.md
-# Codex-specific defaults to ChatMock's codex prompt when not set.
-# Offline fallback is embedded.
-# INSTRUCTIONS_BASE_URL=
-# INSTRUCTIONS_CODEX_URL=
-
-# ------------------
-# Upstream provider overrides (optional)
-# ------------------
-
-# 1) Choose your upstream endpoint
-# Option A: Full responses URL (highest priority)
-# UPSTREAM_RESPONSES_URL=https://example.com/v1/responses
-
-# Option B: Base URL + wire path (defaults to /responses)
-# UPSTREAM_BASE_URL=https://example.com/v1
-# UPSTREAM_WIRE_API_PATH=/responses
-
-# 2) Choose how to authenticate to the upstream
-#    chatgpt_token     -> use OAuth tokens from OPENAI_CODEX_AUTH (default)
-#    apikey_auth_json  -> read key from OPENAI_CODEX_AUTH[UPSTREAM_AUTH_ENV_KEY] (default key: OPENAI_API_KEY)
-#    apikey_env        -> use UPSTREAM_API_KEY below
-# UPSTREAM_AUTH_MODE=chatgpt_token
-
-# When using apikey_auth_json, set the key name in OPENAI_CODEX_AUTH to read (default: OPENAI_API_KEY)
-# UPSTREAM_AUTH_ENV_KEY=OPENAI_API_KEY
-
-# When using apikey_env, place the upstream API key here
-# UPSTREAM_API_KEY=sk-your-upstream-api-key
-
-# Optional: customize header/scheme (defaults: Authorization / Bearer)
-# UPSTREAM_AUTH_HEADER=Authorization
-# UPSTREAM_AUTH_SCHEME=Bearer
-
-# Optional: tools schema compatibility (default: nested)
-# nested -> tools: [{ type: 'function', function: { name, ... } }]
-# flat   -> tools: [{ type: 'function', name, ... }]
-# UPSTREAM_TOOLS_FORMAT=nested
-
-# ------------------
-# Client header forwarding (optional)
-# ------------------
-# Controls forwarding of client headers to upstream to preserve client characteristics
-# off             -> do not forward (default)
-# safe            -> forward UA, Accept-Language, sec-ch-*, X-Forwarded-For, etc.
-# list            -> forward only headers listed below (comma-separated); values come from client request
-# override        -> set final header values from JSON map below
-# override-codex  -> override only 'user-agent' and 'originator' using Codex's construction logic.
-#                    - originator: defaults to 'codex_cli_rs' (override via FORWARD_CLIENT_HEADERS_CODEX_ORIGINATOR)
-#                    - User-Agent: 'originator/<version> (<osType> <osVersion>; <arch>) <terminal>'
-#                      version is fetched from GitHub latest release (openai/codex rust tag); override via
-#                      FORWARD_CLIENT_HEADERS_CODEX_VERSION. Terminal derived from environment like VSCode.
-#                      In Workers runtime missing values fall back to 'unknown'.
-# FORWARD_CLIENT_HEADERS_MODE=off
-# FORWARD_CLIENT_HEADERS_LIST=User-Agent,Accept-Language
-# FORWARD_CLIENT_HEADERS_OVERRIDE={"User-Agent":"MyApp/1.2.3","Accept":"text/event-stream"}
-# FORWARD_CLIENT_HEADERS_OVERRIDE_CODEX={"user-agent":"codex_cli_rs/0.36.0 (Windows 10.0.26100; x86_64) vscode/1.104.0","originator":"codex_cli_rs"}
-
-# Optional Codex builder settings
-# FORWARD_CLIENT_HEADERS_CODEX_VERSION=0.36.0
-# FORWARD_CLIENT_HEADERS_CODEX_ORIGINATOR=codex_cli_rs
-# TERM_PROGRAM=vscode
-# TERM_PROGRAM_VERSION=1.104.0
-# FORWARD_CLIENT_HEADERS_CODEX_OS_TYPE=Windows
-# FORWARD_CLIENT_HEADERS_CODEX_OS_VERSION=10.0.26100
-# FORWARD_CLIENT_HEADERS_CODEX_ARCH=x86_64
-
-# ------------------
-# Models exposure (optional)
-# ------------------
-# Comma-separated or JSON array of model IDs listed by /v1/models
-# Examples:
-# EXPOSE_MODELS="gpt-5,gpt-5-codex,codex-mini-latest"
-# EXPOSE_MODELS='["gpt-5","gpt-5-codex","codex-mini-latest"]'
+# ------------------------------------------------------------------------------
+# 6) Models exposed by GET /v1/models
+# Accepts CSV or JSON array. Defaults mirror OpenAI-compatible IDs used here.
+# ------------------------------------------------------------------------------
 EXPOSE_MODELS="gpt-5,gpt-5-latest,gpt-5-codex,gpt-5-codex-latest,codex-mini-latest"
 
+# ------------------------------------------------------------------------------
+# 7) Client header forwarding (advanced)
+# Controls how selected client headers are forwarded upstream.
+#   off      -> do not forward (default)
+#   safe     -> forward allowlist (User-Agent, Accept-Language, sec-ch-*, X-Forwarded-*)
+#   list     -> forward only headers listed in FORWARD_CLIENT_HEADERS_LIST
+#   override -> explicitly set final headers from JSON map (Authorization never overridden)
+#   override-codex / override_codex -> derive 'User-Agent' and 'originator' like codex CLI
+# ------------------------------------------------------------------------------
+FORWARD_CLIENT_HEADERS_MODE=off
+# When mode=list, provide comma-separated header names (case-insensitive)
+#FORWARD_CLIENT_HEADERS_LIST=User-Agent,Accept-Language
+# When mode=override, provide JSON map of header overrides
+#FORWARD_CLIENT_HEADERS_OVERRIDE={"User-Agent":"MyApp/1.2.3","Accept":"text/event-stream"}
+# When mode=override-codex, you may override generated 'user-agent' and 'originator'
+#FORWARD_CLIENT_HEADERS_OVERRIDE_CODEX={"user-agent":"codex_cli_rs/0.36.0 (Windows 10.0.26100; x86_64) vscode/1.104.0","originator":"codex_cli_rs"}
+# Optionally pin version/originator for codex UA generation
+#FORWARD_CLIENT_HEADERS_CODEX_VERSION=0.36.0
+#CODEX_INTERNAL_ORIGINATOR_OVERRIDE=codex_cli_rs
+#FORWARD_CLIENT_HEADERS_CODEX_ORIGINATOR=codex_cli_rs
 
-# ----------------------------------------------------------------------------------
-# Auto-generation for User-Agent environment variables
-# ----------------------------------------------------------------------------------
-# To automatically populate the environment variables required for a detailed User-Agent
-# (like OS, architecture, and editor version), run the following command in your terminal.
-#
-# For best results, run this from the integrated terminal within VS Code, as this allows
-# the script to detect TERM_PROGRAM and TERM_PROGRAM_VERSION.
-#
-# Command:
-# npm run gen:env
-#
-# This will print a list of key-value pairs. Copy them into your .dev.vars file.
-# Example generated variables:
-#
-# TERM_PROGRAM="vscode"
-# TERM_PROGRAM_VERSION="1.91.1"
-# FORWARD_CLIENT_HEADERS_CODEX_OS_TYPE="Windows"
-# FORWARD_CLIENT_HEADERS_CODEX_OS_VERSION="10.0.22631"
-# FORWARD_CLIENT_HEADERS_CODEX_ARCH="x86_64"
-#
+# Optional OS/arch/editor hints for codex UA (used when client hints unavailable)
+#FORWARD_CLIENT_HEADERS_CODEX_OS_TYPE=Windows
+#FORWARD_CLIENT_HEADERS_CODEX_OS_VERSION=10.0.26100
+#FORWARD_CLIENT_HEADERS_CODEX_ARCH=x86_64
+#FORWARD_CLIENT_HEADERS_CODEX_EDITOR=vscode/1.104.0
+
+# Optional terminal detection (helps build UA if editor not detected)
+#TERM_PROGRAM=vscode
+#TERM_PROGRAM_VERSION=1.104.0
+#WEZTERM_VERSION=
+#KONSOLE_VERSION=
+#VTE_VERSION=
+#WT_SESSION=
+#KITTY_WINDOW_ID=
+#ALACRITTY_SOCKET=
+#TERM=xterm-256color
+
+# ------------------------------------------------------------------------------
+# 8) Logging / debugging
+# ------------------------------------------------------------------------------
+# Minimal request logs in routes (string "true" or "false")
+VERBOSE=false
+# Force a specific model id regardless of request (useful for testing)
+#DEBUG_MODEL=gpt-5-codex
+
+# ------------------------------------------------------------------------------
+# 9) Cloudflare KV binding (optional)
+# If set, the generator injects a kv_namespaces block with this ID bound as "KV".
+# ------------------------------------------------------------------------------
+#KV_ID=
+
+# ------------------------------------------------------------------------------
+# 10) Dev/runtime toggles for generator (Docker/local only)
+# - GENERATE_WRANGLER_VARS:
+#     1/true  -> Add [vars] to generated toml (values visible in wrangler logs)
+#     0/false -> Do not add [vars] (default). Prefer this to keep logs clean.
+# - WRANGLER_EMIT_DEV_VARS:
+#     1/true  -> Emit a .dev.vars snapshot from current env if [vars] is not generated
+#     0/false -> Do not emit snapshot
+# The docker-compose dev service sets GENERATE_WRANGLER_VARS=0 and WRANGLER_EMIT_DEV_VARS=1.
+# ------------------------------------------------------------------------------
+#GENERATE_WRANGLER_VARS=0
+#WRANGLER_EMIT_DEV_VARS=1
+
+# ------------------------------------------------------------------------------
+# 11) Node runtime only (not used by Workers dev)
+# The Node server listens on PORT when running `npm run start:node`.
+# ------------------------------------------------------------------------------
+#PORT=8787
