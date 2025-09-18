@@ -27,16 +27,15 @@ app.route("/", openai); // Default: /v1/*
 app.route("/api", ollama); // Mount the Ollama routes under /api
 
 // Helper: per-prefix compat override middleware (only active when REASONING_OUTPUT_MODE=all)
-const withCompat = (mode: ReasoningCompat | string) =>
-  async (c: any, next: () => Promise<void>) => {
-    const compatAll = (c.env && ((c.env as any).REASONING_OUTPUT_MODE === "all"));
-    if (!compatAll) {
-      // If ALL mode is not enabled, pretend route does not exist
-      return c.notFound();
-    }
-    c.set("REASONING_OUTPUT_MODE_OVERRIDE", String(mode));
-    await next();
-  };
+const withCompat = (mode: ReasoningCompat | string) => async (c: any, next: () => Promise<void>) => {
+	const compatAll = c.env && (c.env as any).REASONING_OUTPUT_MODE === "all";
+	if (!compatAll) {
+		// If ALL mode is not enabled, pretend route does not exist
+		return c.notFound();
+	}
+	c.set("REASONING_OUTPUT_MODE_OVERRIDE", String(mode));
+	await next();
+};
 
 // Static prefixed mounts for explicit modes when ALL-mode is enabled
 // e.g. /tagged/v1/chat/completions -> tagged; /r1/v1/chat/completions -> r1; etc.
@@ -51,8 +50,6 @@ app.route("/o3", openai);
 
 app.use("/openai/*", withCompat("openai"));
 app.route("/openai", openai);
-
-
 
 app.use("/hidden/*", withCompat("hidden"));
 app.route("/hidden", openai);

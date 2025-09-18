@@ -36,11 +36,10 @@ ollama.post("/chat", openaiAuthMiddleware(), async (c) => {
 
 	const inputItems = convertChatMessagesToResponsesInput(messages);
 
-    const instructions = await getInstructionsForModel(c.env, model);
+	const instructions = await getInstructionsForModel(c.env, model);
 
 	const { response: upstream, error: errorResp } = await startUpstreamRequest(c.env, model, inputItems, {
-		instructions: instructions
-		,
+		instructions: instructions,
 		forwardedClientHeaders: c.req.raw.headers
 	});
 

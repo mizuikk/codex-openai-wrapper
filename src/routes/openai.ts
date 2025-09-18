@@ -13,24 +13,26 @@ openai.post("/v1/chat/completions", openaiAuthMiddleware(), async (c) => {
 	const verbose = c.env.VERBOSE === "true";
 	const reasoningEffort = c.env.REASONING_EFFORT || "low";
 	const reasoningSummary = c.env.REASONING_SUMMARY || "auto";
-    // Allow per-route override via context, fall back to env
-    let reasoningCompat =
-        (((c as any).get("REASONING_OUTPUT_MODE_OVERRIDE") as string | undefined) ||
-            ((c.env as any).REASONING_OUTPUT_MODE as string | undefined) ||
-            "openai");
-    if (String(reasoningCompat).trim().toLowerCase() === "all") {
-        // Default the root /v1 to openai when running in ALL mode
-        reasoningCompat = "openai";
-    }
+	// Allow per-route override via context, fall back to env
+	let reasoningCompat =
+		((c as any).get("REASONING_OUTPUT_MODE_OVERRIDE") as string | undefined) ||
+		((c.env as any).REASONING_OUTPUT_MODE as string | undefined) ||
+		"openai";
+	if (String(reasoningCompat).trim().toLowerCase() === "all") {
+		// Default the root /v1 to openai when running in ALL mode
+		reasoningCompat = "openai";
+	}
 	const debugModel = c.env.DEBUG_MODEL;
 
-    // Upstream cancellation wiring: tie client request lifecycle to upstream fetch.
-    // Notes (English): We create a dedicated AbortController for the upstream
-    // request and abort it when the incoming client request aborts (e.g.,
-    // browser tab closed or navigation). This prevents wasting compute on
-    // long-running generations after the client has gone away.
-    const upstreamAbort = new AbortController();
-    try { c.req.raw.signal.addEventListener("abort", () => upstreamAbort.abort(), { once: true }); } catch {}
+	// Upstream cancellation wiring: tie client request lifecycle to upstream fetch.
+	// Notes (English): We create a dedicated AbortController for the upstream
+	// request and abort it when the incoming client request aborts (e.g.,
+	// browser tab closed or navigation). This prevents wasting compute on
+	// long-running generations after the client has gone away.
+	const upstreamAbort = new AbortController();
+	try {
+		c.req.raw.signal.addEventListener("abort", () => upstreamAbort.abort(), { once: true });
+	} catch {}
 
 	// Minimal request logging
 	if (verbose) {
@@ -93,19 +95,19 @@ openai.post("/v1/chat/completions", openaiAuthMiddleware(), async (c) => {
 		inputItems.push({ type: "message", role: "user", content: [{ type: "input_text", text: payload.prompt }] });
 	}
 
-    const modelReasoning = extractReasoningFromModelName(payload.model);
-    const reasoningOverrides: { effort?: string; summary?: string } | undefined =
-        (typeof payload.reasoning === "object" && payload.reasoning !== null
-            ? (payload.reasoning as { effort?: string; summary?: string })
-            : undefined) || modelReasoning;
-    const reasoningParam = buildReasoningParam(reasoningEffort, reasoningSummary, reasoningOverrides);
+	const modelReasoning = extractReasoningFromModelName(payload.model);
+	const reasoningOverrides: { effort?: string; summary?: string } | undefined =
+		(typeof payload.reasoning === "object" && payload.reasoning !== null
+			? (payload.reasoning as { effort?: string; summary?: string })
+			: undefined) || modelReasoning;
+	const reasoningParam = buildReasoningParam(reasoningEffort, reasoningSummary, reasoningOverrides);
 
 	// Auth check (minimal logging)
 	if (verbose) {
 		console.log("Authentication verified");
 	}
 
-    const instructions = await getInstructionsForModel(c.env, model);
+	const instructions = await getInstructionsForModel(c.env, model);
 
 	const { response: upstream, error: errorResp } = await startUpstreamRequest(c.env, model, inputItems, {
 		instructions: instructions,
@@ -114,7 +116,7 @@ openai.post("/v1/chat/completions", openaiAuthMiddleware(), async (c) => {
 		parallelToolCalls: parallelToolCalls,
 		reasoningParam: reasoningParam,
 		forwardedClientHeaders: c.req.raw.headers,
-        signal: upstreamAbort.signal
+		signal: upstreamAbort.signal
 	});
 
 	if (verbose) {
@@ -163,8 +165,12 @@ openai.post("/v1/chat/completions", openaiAuthMiddleware(), async (c) => {
 				while (true) {
 					// Stop reading if client aborted. Also cancel upstream to release resources.
 					if (c.req.raw?.signal?.aborted) {
-						try { await reader.cancel(new DOMException("Client aborted", "AbortError")); } catch {}
-						try { await upstream.body?.cancel?.(new DOMException("Client aborted", "AbortError")); } catch {}
+						try {
+							await reader.cancel(new DOMException("Client aborted", "AbortError"));
+						} catch {}
+						try {
+							await upstream.body?.cancel?.(new DOMException("Client aborted", "AbortError"));
+						} catch {}
 						break;
 					}
 					const { done, value } = await reader.read();
@@ -262,7 +268,7 @@ openai.post("/v1/completions", openaiAuthMiddleware(), async (c) => {
 	const reasoningEffort = c.env.REASONING_EFFORT || "low";
 	const reasoningSummary = c.env.REASONING_SUMMARY || "auto";
 
-    // No legacy/current/standard handling (removed)
+	// No legacy/current/standard handling (removed)
 
 	// Minimal request logging
 	if (verbose) {
@@ -294,29 +300,29 @@ openai.post("/v1/completions", openaiAuthMiddleware(), async (c) => {
 	const messages: ChatMessage[] = [{ role: "user", content: String(prompt || "") }];
 	const inputItems = convertChatMessagesToResponsesInput(messages);
 
-    const modelReasoning2 = extractReasoningFromModelName(payload.model);
-    const reasoningOverrides2 =
-        (typeof payload.reasoning === "object" && payload.reasoning !== null
-            ? (payload.reasoning as { effort?: string; summary?: string })
-            : undefined) || modelReasoning2;
-    const reasoningParam = buildReasoningParam(reasoningEffort, reasoningSummary, reasoningOverrides2);
+	const modelReasoning2 = extractReasoningFromModelName(payload.model);
+	const reasoningOverrides2 =
+		(typeof payload.reasoning === "object" && payload.reasoning !== null
+			? (payload.reasoning as { effort?: string; summary?: string })
+			: undefined) || modelReasoning2;
+	const reasoningParam = buildReasoningParam(reasoningEffort, reasoningSummary, reasoningOverrides2);
 
-    const instructions = await getInstructionsForModel(c.env, model);
+	const instructions = await getInstructionsForModel(c.env, model);
 
 	const { response: upstream, error: errorResp } = await startUpstreamRequest(c.env, model, inputItems, {
 		instructions: instructions,
 		reasoningParam: reasoningParam,
 		forwardedClientHeaders: c.req.raw.headers,
-        signal: ((): AbortSignal | undefined => {
-            try {
-                const ac = new AbortController();
-                c.req.raw.signal.addEventListener("abort", () => ac.abort(), { once: true });
-                return ac.signal;
-            } catch {
-                return undefined;
-            }
-        })()
-    });
+		signal: ((): AbortSignal | undefined => {
+			try {
+				const ac = new AbortController();
+				c.req.raw.signal.addEventListener("abort", () => ac.abort(), { once: true });
+				return ac.signal;
+			} catch {
+				return undefined;
+			}
+		})()
+	});
 
 	if (errorResp) {
 		if (verbose) {
@@ -359,8 +365,12 @@ openai.post("/v1/completions", openaiAuthMiddleware(), async (c) => {
 				let buffer = "";
 				while (true) {
 					if (c.req.raw?.signal?.aborted) {
-						try { await reader.cancel(new DOMException("Client aborted", "AbortError")); } catch {}
-						try { await upstream.body?.cancel?.(new DOMException("Client aborted", "AbortError")); } catch {}
+						try {
+							await reader.cancel(new DOMException("Client aborted", "AbortError"));
+						} catch {}
+						try {
+							await upstream.body?.cancel?.(new DOMException("Client aborted", "AbortError"));
+						} catch {}
 						break;
 					}
 					const { done, value } = await reader.read();
@@ -420,36 +430,28 @@ openai.post("/v1/completions", openaiAuthMiddleware(), async (c) => {
 
 // Helper to parse EXPOSE_MODELS from env (CSV or JSON array)
 function parseExposeModels(input: string | undefined, fallback: string[]): string[] {
-    if (typeof input !== "string" || !input.trim()) return fallback;
-    const raw = input.trim();
-    try {
-        const arr = JSON.parse(raw);
-        if (Array.isArray(arr)) {
-            return arr
-                .map((v) => (typeof v === "string" ? v.trim() : ""))
-                .filter(Boolean);
-        }
-    } catch {
-        // not JSON, try CSV / whitespace separated
-    }
-    return raw
-        .split(/[,\s]+/)
-        .map((s) => s.trim())
-        .filter(Boolean);
+	if (typeof input !== "string" || !input.trim()) return fallback;
+	const raw = input.trim();
+	try {
+		const arr = JSON.parse(raw);
+		if (Array.isArray(arr)) {
+			return arr.map((v) => (typeof v === "string" ? v.trim() : "")).filter(Boolean);
+		}
+	} catch {
+		// not JSON, try CSV / whitespace separated
+	}
+	return raw
+		.split(/[,\s]+/)
+		.map((s) => s.trim())
+		.filter(Boolean);
 }
 
 openai.get("/v1/models", (c) => {
-    // Default set mirrors built-in support and aliases
-    const defaults = [
-        "gpt-5",
-        "gpt-5-latest",
-        "gpt-5-codex",
-        "gpt-5-codex-latest",
-        "codex-mini-latest",
-    ];
-    const ids = parseExposeModels(c.env.EXPOSE_MODELS, defaults);
-    const data = ids.map((id) => ({ id, object: "model", owned_by: "openai-codex" }));
-    return c.json({ object: "list", data });
+	// Default set mirrors built-in support and aliases
+	const defaults = ["gpt-5", "gpt-5-latest", "gpt-5-codex", "gpt-5-codex-latest", "codex-mini-latest"];
+	const ids = parseExposeModels(c.env.EXPOSE_MODELS, defaults);
+	const data = ids.map((id) => ({ id, object: "model", owned_by: "openai-codex" }));
+	return c.json({ object: "list", data });
 });
 
 export default openai;

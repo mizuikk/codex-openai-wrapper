@@ -40,14 +40,13 @@ export function buildReasoningParam(
 }
 
 interface ChatMessage {
-    role: string;
-    content: string | null;
-    reasoning?: string | { content: { type: string; text: string }[] };
-    reasoning_summary?: string;
-    reasoning_content?: string | null;
-    [key: string]: unknown;
+	role: string;
+	content: string | null;
+	reasoning?: string | { content: { type: string; text: string }[] };
+	reasoning_summary?: string;
+	reasoning_content?: string | null;
+	[key: string]: unknown;
 }
-
 
 /**
  * Normalize compatibility mode
@@ -55,14 +54,14 @@ interface ChatMessage {
  * - Returns standardized compatibility mode or falls back to "openai"
  */
 export function normalizeCompatMode(compat: string): string {
-    try {
-        const normalized = (compat || "openai").trim().toLowerCase();
-        // If the normalized value is not a known mode, default to openai
-        const knownModes = new Set(["tagged", "openai", "o3", "r1", "hidden"]);
-        return knownModes.has(normalized) ? normalized : "openai";
-    } catch {
-        return "openai";
-    }
+	try {
+		const normalized = (compat || "openai").trim().toLowerCase();
+		// If the normalized value is not a known mode, default to openai
+		const knownModes = new Set(["tagged", "openai", "o3", "r1", "hidden"]);
+		return knownModes.has(normalized) ? normalized : "openai";
+	} catch {
+		return "openai";
+	}
 }
 
 export function applyReasoningToMessage(
@@ -91,17 +90,17 @@ export function applyReasoningToMessage(
 		return message;
 	}
 
-    // For o3 keep structured OpenAI reasoning object
-    if (normalizedCompat === "o3") {
-        message.reasoning = { content: [{ type: "text", text: rtxt }] };
-        return message;
-    }
+	// For o3 keep structured OpenAI reasoning object
+	if (normalizedCompat === "o3") {
+		message.reasoning = { content: [{ type: "text", text: rtxt }] };
+		return message;
+	}
 
-    // Compatible openai mode: use `reasoning_content` (string)
-    if (normalizedCompat === "openai") {
-        message.reasoning_content = rtxt;
-        return message;
-    }
+	// Compatible openai mode: use `reasoning_content` (string)
+	if (normalizedCompat === "openai") {
+		message.reasoning_content = rtxt;
+		return message;
+	}
 
 	// DeepSeek R1 compatibility
 	if (normalizedCompat === "r1") {
@@ -109,31 +108,32 @@ export function applyReasoningToMessage(
 		return message;
 	}
 
-    // Note: legacy "standard" behavior/name removed; use "openai" instead
-    // in favor of official OpenAI-compatible reasoning object above.
+	// Note: legacy "standard" behavior/name removed; use "openai" instead
+	// in favor of official OpenAI-compatible reasoning object above.
 
 	// Default to tagged content compatibility
 	const thinkBlock = `<think>${rtxt}</think>`;
 	const contentText = message.content || "";
-	message.content =
-		thinkBlock + (typeof contentText === "string" ? contentText : "");
+	message.content = thinkBlock + (typeof contentText === "string" ? contentText : "");
 	return message;
 }
 
 // Infer reasoning overrides from model suffix, like ChatMock:
 // e.g., "gpt-5-medium" => { effort: "medium" }
 export function extractReasoningFromModelName(model: unknown): { effort?: string; summary?: string } | undefined {
-  try {
-    const s = String(model || "").trim().toLowerCase();
-    if (!s) return undefined;
-    const parts = s.split(":", 1)[0];
-    for (const sep of ["-", "_"]) {
-      for (const effort of ["minimal", "low", "medium", "high"]) {
-        if (parts.endsWith(`${sep}${effort}`)) return { effort };
-      }
-    }
-    return undefined;
-  } catch {
-    return undefined;
-  }
+	try {
+		const s = String(model || "")
+			.trim()
+			.toLowerCase();
+		if (!s) return undefined;
+		const parts = s.split(":", 1)[0];
+		for (const sep of ["-", "_"]) {
+			for (const effort of ["minimal", "low", "medium", "high"]) {
+				if (parts.endsWith(`${sep}${effort}`)) return { effort };
+			}
+		}
+		return undefined;
+	} catch {
+		return undefined;
+	}
 }
