@@ -35,6 +35,14 @@ openai.post("/v1/chat/completions", openaiAuthMiddleware(), async (c) => {
 	}
 	const debugModel = c.env.DEBUG_MODEL;
 
+    // Upstream cancellation wiring: tie client request lifecycle to upstream fetch.
+    // Notes (English): We create a dedicated AbortController for the upstream
+    // request and abort it when the incoming client request aborts (e.g.,
+    // browser tab closed or navigation). This prevents wasting compute on
+    // long-running generations after the client has gone away.
+    const upstreamAbort = new AbortController();
+    try { c.req.raw.signal.addEventListener("abort", () => upstreamAbort.abort(), { once: true }); } catch {}
+
 	// Minimal request logging
 	if (verbose) {
 		console.log("POST /v1/chat/completions");
@@ -116,7 +124,8 @@ openai.post("/v1/chat/completions", openaiAuthMiddleware(), async (c) => {
 		toolChoice: toolChoice,
 		parallelToolCalls: parallelToolCalls,
 		reasoningParam: reasoningParam,
-		forwardedClientHeaders: c.req.raw.headers
+		forwardedClientHeaders: c.req.raw.headers,
+        signal: upstreamAbort.signal
 	});
 
 	if (verbose) {
@@ -163,6 +172,12 @@ openai.post("/v1/chat/completions", openaiAuthMiddleware(), async (c) => {
 				const decoder = new TextDecoder();
 				let buffer = "";
 				while (true) {
+					// Stop reading if client aborted. Also cancel upstream to release resources.
+					if (c.req.raw?.signal?.aborted) {
+						try { await reader.cancel(new DOMException("Client aborted", "AbortError")); } catch {}
+						try { await upstream.body?.cancel?.(new DOMException("Client aborted", "AbortError")); } catch {}
+						break;
+					}
 					const { done, value } = await reader.read();
 					if (done) break;
 					buffer += decoder.decode(value, { stream: true });
@@ -318,7 +333,16 @@ openai.post("/v1/completions", openaiAuthMiddleware(), async (c) => {
 	const { response: upstream, error: errorResp } = await startUpstreamRequest(c.env, model, inputItems, {
 		instructions: instructions,
 		reasoningParam: reasoningParam,
-		forwardedClientHeaders: c.req.raw.headers
+		forwardedClientHeaders: c.req.raw.headers,
+        signal: ((): AbortSignal | undefined => {
+            try {
+                const ac = new AbortController();
+                c.req.raw.signal.addEventListener("abort", () => ac.abort(), { once: true });
+                return ac.signal;
+            } catch {
+                return undefined;
+            }
+        })()
 	});
 
 	if (errorResp) {
@@ -361,6 +385,11 @@ openai.post("/v1/completions", openaiAuthMiddleware(), async (c) => {
 				const decoder = new TextDecoder();
 				let buffer = "";
 				while (true) {
+					if (c.req.raw?.signal?.aborted) {
+						try { await reader.cancel(new DOMException("Client aborted", "AbortError")); } catch {}
+						try { await upstream.body?.cancel?.(new DOMException("Client aborted", "AbortError")); } catch {}
+						break;
+					}
 					const { done, value } = await reader.read();
 					if (done) break;
 					buffer += decoder.decode(value, { stream: true });

@@ -107,6 +107,32 @@ function cmpSemver(a: string, b: string): number {
     return 0;
 }
 
+// Combine two AbortSignals into one. If either aborts, the returned signal
+// aborts. When both are undefined, returns undefined.
+function combineAbortSignals(a?: AbortSignal, b?: AbortSignal): AbortSignal | undefined {
+    if (!a && !b) return undefined;
+    if (a && !b) return a;
+    if (!a && b) return b;
+    const controller = new AbortController();
+    const onAbortA = (reason?: any) => {
+        try { controller.abort((a as any).reason ?? reason); } catch { controller.abort(); }
+        cleanup();
+    };
+    const onAbortB = (reason?: any) => {
+        try { controller.abort((b as any).reason ?? reason); } catch { controller.abort(); }
+        cleanup();
+    };
+    const cleanup = () => {
+        try { a?.removeEventListener("abort", onAbortA as any); } catch {}
+        try { b?.removeEventListener("abort", onAbortB as any); } catch {}
+    };
+    try { a?.addEventListener("abort", onAbortA as any, { once: true }); } catch {}
+    try { b?.addEventListener("abort", onAbortB as any, { once: true }); } catch {}
+    if (a?.aborted) onAbortA();
+    else if (b?.aborted) onAbortB();
+    return controller.signal;
+}
+
 async function fetchLatestCodexVersionFromTags(): Promise<string | null> {
     try {
         const res = await fetch("https://api.github.com/repos/openai/codex/tags?per_page=100", {
@@ -202,6 +228,15 @@ export async function startUpstreamRequest(
 		ollamaPath?: string; // Added for Ollama specific paths
 		ollamaPayload?: OllamaPayload; // Added for Ollama specific payloads
 		forwardedClientHeaders?: Headers; // Optional: original client headers for selective forwarding
+        // NEW: Optional abort signal passed from the request lifecycle so we
+        // can cancel the upstream fetch when the client disconnects.
+        // (English) This ensures resources are released promptly under
+        // client aborts and avoids upstream compute leakage.
+        signal?: AbortSignal;
+        // Optional timeout for upstream request (ms). When provided, a
+        // composite signal will be used so either timeout or caller abort
+        // cancels the fetch.
+        timeoutMs?: number;
 	}
 ): Promise<{ response: Response | null; error: Response | null }> {
     const { instructions, tools, toolChoice, parallelToolCalls, reasoningParam } = options || {};
@@ -589,11 +624,26 @@ async function applyOverrideClientHeaders() {
 	// Apply final override, if configured
 	await applyOverrideClientHeaders();
 
+	// Build a composite AbortSignal if caller provided a signal and/or timeout
+    let fetchSignal: AbortSignal | undefined = options?.signal;
+    let timeoutController: AbortController | null = null;
+    try {
+        if (typeof options?.timeoutMs === "number" && options.timeoutMs > 0) {
+            timeoutController = new AbortController();
+            fetchSignal = combineAbortSignals(options?.signal, timeoutController.signal);
+            // Fire timeout after the specified duration
+            setTimeout(() => {
+                try { timeoutController?.abort(new DOMException("Upstream timeout", "TimeoutError")); } catch {}
+            }, options.timeoutMs);
+        }
+    } catch {}
+
 	try {
 		const upstreamResponse = await fetch(requestUrl, {
 			method: "POST",
 			headers: headers,
-			body: requestBody
+			body: requestBody,
+            signal: fetchSignal
 			// Cloudflare Workers fetch does not have a 'timeout' option like requests.
 			// You might need to implement a custom timeout using AbortController if necessary.
 		});
@@ -700,10 +750,11 @@ async function applyOverrideOnRetry() {
                     // Apply final override to retry headers as well (if configured)
                     await applyOverrideOnRetry();
 
-                    const retryResponse = await fetch(requestUrl, {
+					const retryResponse = await fetch(requestUrl, {
 						method: "POST",
 						headers: headers,
-						body: requestBody
+						body: requestBody,
+                        signal: fetchSignal
 					});
 
 					if (retryResponse.ok) {
@@ -727,6 +778,7 @@ async function applyOverrideOnRetry() {
 
 		return { response: upstreamResponse, error: null };
 	} catch (e: unknown) {
+		try { timeoutController?.abort(); } catch {}
 		// Log complete error details for fetch failures
 		console.error("=== UPSTREAM REQUEST FAILURE ===");
 		console.error("URL:", requestUrl);
