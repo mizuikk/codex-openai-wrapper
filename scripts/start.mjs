@@ -26,11 +26,33 @@ async function main() {
 
   // Keep Worker types in sync with the wrangler version in the container.
   // This prevents the "Your types might be out of date" warning on startup.
-  try {
-    console.log('[start] Generating Worker types...');
-    await run('wrangler', ['types']);
-  } catch (e) {
-    console.warn('[start] WARN: failed to generate types via "wrangler types":', e?.message || e);
+  // In production images we may omit devDependencies, so wrangler might not exist.
+  const wranglerExists = await (async () => {
+    try {
+      await run('wrangler', ['--version']);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  })();
+
+  if (wranglerExists) {
+    try {
+      console.log('[start] Generating Worker types...');
+      await run('wrangler', ['types']);
+    } catch (e) {
+      console.warn('[start] WARN: failed to generate types via "wrangler types":', e?.message || e);
+    }
+  } else {
+    console.warn('[start] WARN: wrangler CLI not found in PATH.');
+  }
+
+  if (!wranglerExists) {
+    console.error('[start] Failed to start: Wrangler CLI is required for dev runtime.');
+    console.error('[start] Hints:');
+    console.error('[start]  - Build/run with NODE_ENV=development (includes devDependencies).');
+    console.error('[start]  - Or rebuild with --build-arg INSTALL_WRANGLER_GLOBAL=1 to include wrangler globally.');
+    process.exit(1);
   }
 
   console.log('[start] Starting wrangler dev on 0.0.0.0:8787');

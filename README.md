@@ -1002,3 +1002,54 @@ Any other form of distribution, sublicensing, or commercial use is strictly proh
 
 
 
+## Deployment and Docker
+
+This project now supports two independent paths:
+
+1) Cloudflare production deploy (recommended for Workers)
+- Use your local/CI toolchain with Wrangler. Docker is not required.
+- Requirements: Node.js 22, devDependencies available (Wrangler).
+- Commands:
+  - `npm install`
+  - `npm run deploy` (runs `wrangler deploy` via a generated `.wrangler.generated.toml`)
+
+2) Runtime-only Docker image (no Wrangler)
+- Purpose: self-hosted runtime without bundling Wrangler/Miniflare. Minimal image size.
+- Multi‑stage Dockerfile targets:
+  - `runtime` (default): builds a single-file Node entrypoint and runs it with Node 22.
+  - `dev` (optional): includes devDependencies and runs `wrangler dev` for a Cloudflare-like local runtime.
+- Build & run (runtime-only):
+  - Build: `docker build -t codex-openai-wrapper:runtime --target runtime .`
+  - Run: `docker run --rm -p 8787:8787 -e OPENAI_API_KEY=YOUR_KEY codex-openai-wrapper:runtime`
+  - Health: `GET http://localhost:8787/health` → `{ "status": "ok" }`
+
+Local development with Docker Compose (Wrangler)
+- Compose uses the `dev` target to preserve Wrangler dev UX:
+  - `docker compose up --build`
+- TLS note: The dev image installs system CA certificates. If your environment requires a custom root CA, extend the dev stage before `USER worker`:
+
+```
+FROM deps AS dev
+ENV PATH="/app/node_modules/.bin:${PATH}"
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
+# Add your enterprise CAs, then update trust store
+COPY certs/*.crt /usr/local/share/ca-certificates/
+RUN update-ca-certificates
+...
+```
+
+What changed
+- Node base updated to Node 22 (`node:22-slim`).
+- Multi‑stage Dockerfile with separate `dev` and `runtime` targets.
+- Runtime image does not include Wrangler; starts a Node server entrypoint.
+- Dev target installs CA certificates to fix TLS trust in workerd.
+- Added a Node server entrypoint using `@hono/node-server`.
+- Health checks use Node fetch; no `wget/curl` required.
+
+Related commands
+- Build runtime image: `docker build -t codex-openai-wrapper:runtime --target runtime .`
+- Build dev image: `docker build -t codex-openai-wrapper:dev --target dev .`
+- Compose up (dev): `docker compose up --build`
+- Cloudflare deploy: `npm run deploy`

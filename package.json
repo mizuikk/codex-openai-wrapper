@@ -7,6 +7,8 @@
 		"deploy": "npm run prepare:wrangler-config && wrangler deploy --config .wrangler.generated.toml",
     "dev": "npm run prepare:wrangler-config && wrangler types && wrangler dev --config .wrangler.generated.toml",
 		"start": "npm run dev",
+		"build:node": "esbuild src/server-node.ts --bundle --format=esm --platform=node --target=node22 --outfile=dist/server-node.mjs",
+		"start:node": "node dist/server-node.mjs",
 		"test": "vitest run",
 		"test:watch": "vitest",
 		"test:coverage": "vitest run --coverage",
@@ -21,6 +23,7 @@
 		"gen:env": "node scripts/generate-env.mjs"
 	},
 	"devDependencies": {
+		"esbuild": "^0.23.0",
 		"@cloudflare/vitest-pool-workers": "^0.8.19",
 		"@eslint/eslintrc": "^3.3.1",
 		"@eslint/js": "^9.32.0",
@@ -34,6 +37,7 @@
 		"wrangler": "^4.37.1"
 	},
 	"dependencies": {
+		"@hono/node-server": "^1.11.0",
 		"hono": "^4.9.2"
 	}
 }

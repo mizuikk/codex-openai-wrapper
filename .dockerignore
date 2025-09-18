@@ -22,8 +22,13 @@ node_modules/
 *.log
 logs/
 dist/
+docs/
+test/
+**/*.map
+
+# Large type/schema artifacts not needed in image
+worker-configuration.d.ts
 
 # Editor/IDE
 .vscode/
 .idea/
-

@@ -1,12 +1,9 @@
-version: '3.8'
-
 services:
   codex-openai-wrapper-worker:
     build:
       context: .
       dockerfile: Dockerfile
-      args:
-        NODE_ENV: development
+      target: dev
     container_name: codex-openai-wrapper
     ports:
       - "8787:8787"  # Host:Container port mapping
@@ -28,7 +25,7 @@ services:
     restart: unless-stopped
     # Health check
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8787/health"]
+      test: ["CMD", "node", "-e", "fetch('http://localhost:8787/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 30s
       timeout: 10s
       retries: 3
