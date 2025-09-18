@@ -84,7 +84,7 @@ The service will be available at `http://localhost:8787`
 | `OPENAI_API_KEY` | Your OpenAI API key for authentication | ✅ | - |
 | `CHATGPT_RESPONSES_URL` | OpenAI API endpoint URL | ✅ | - |
 | `OPENAI_CODEX_AUTH` | JSON string with access tokens | ✅ | - |
-| `REASONING_EFFORT` | AI reasoning depth: `minimal`, `low`, `medium`, `high` | ❌ | `minimal` |
+| `REASONING_EFFORT` | AI reasoning depth: `minimal`, `low`, `medium`, `high` | ❌ | `low` |
 | `REASONING_SUMMARY` | Summary mode: `auto`, `concise`, `detailed`, `none` (aliases: `on`=concise, `off`=none) | ❌ | `auto` |
 | `REASONING_OUTPUT_MODE` | Compatibility mode: `openai`, `tagged`, `o3`, `r1`, `hidden`, `all` | ❌ | `openai` |
 | `VERBOSE` | Enable detailed logging: `true`, `false` | ❌ | `false` |

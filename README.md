@@ -308,7 +308,7 @@ This will ensure your worker uses a detailed and accurate `User-Agent` string, m
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `REASONING_EFFORT` | `minimal` | Reasoning effort level: `minimal`, `low`, `medium`, `high` |
+| `REASONING_EFFORT` | `low` | Reasoning effort level: `minimal`, `low`, `medium`, `high` |
 | `REASONING_SUMMARY` | `auto` | Summary mode: `auto`, `concise`, `detailed`, `none` (aliases: `on` = `concise`, `off` = `none`) |
 | `REASONING_OUTPUT_MODE` | `openai` | Output compatibility: `openai`, `tagged`, `o3`, `r1`, `hidden` (use `hidden` to suppress reasoning entirely) |
 

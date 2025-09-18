@@ -11,7 +11,7 @@ const openai = new Hono<{ Bindings: Env }>();
 
 openai.post("/v1/chat/completions", openaiAuthMiddleware(), async (c) => {
 	const verbose = c.env.VERBOSE === "true";
-	const reasoningEffort = c.env.REASONING_EFFORT || "minimal";
+	const reasoningEffort = c.env.REASONING_EFFORT || "low";
 	const reasoningSummary = c.env.REASONING_SUMMARY || "auto";
     // Allow per-route override via context, fall back to env
     let reasoningCompat =
@@ -259,7 +259,7 @@ openai.post("/v1/chat/completions", openaiAuthMiddleware(), async (c) => {
 openai.post("/v1/completions", openaiAuthMiddleware(), async (c) => {
 	const verbose = c.env.VERBOSE === "true";
 	const debugModel = c.env.DEBUG_MODEL;
-	const reasoningEffort = c.env.REASONING_EFFORT || "minimal";
+	const reasoningEffort = c.env.REASONING_EFFORT || "low";
 	const reasoningSummary = c.env.REASONING_SUMMARY || "auto";
 
     // No legacy/current/standard handling (removed)

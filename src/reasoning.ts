@@ -4,7 +4,7 @@ type ReasoningParam = {
 };
 
 export function buildReasoningParam(
-	baseEffort: string = "minimal",
+	baseEffort: string = "low",
 	baseSummary: string = "auto",
 	overrides?: { effort?: string; summary?: string }
 ): ReasoningParam {
@@ -26,7 +26,7 @@ export function buildReasoningParam(
 	}
 
 	if (!validEfforts.has(effort)) {
-		effort = "minimal";
+		effort = "low";
 	}
 	if (!validSummaries.has(summary)) {
 		summary = "auto";
