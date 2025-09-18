@@ -1,21 +1,25 @@
 // src/sse.ts
 import { normalizeCompatMode } from './reasoning';
 interface SseEvent {
-	type: string;
-	response?: {
-		id?: string;
-		error?: {
-			message: string;
-		};
-	};
-	item?: {
-		type: string;
-		call_id?: string;
-		id?: string;
-		name?: string;
-		arguments?: string;
-	};
-	delta?: string;
+    type: string;
+    response?: {
+        id?: string;
+        // Optional usage payload (Responses API)
+        usage?: Record<string, unknown>;
+        error?: {
+            message: string;
+        };
+    };
+    // Some implementations provide usage at the root level
+    usage?: Record<string, unknown>;
+    item?: {
+        type: string;
+        call_id?: string;
+        id?: string;
+        name?: string;
+        arguments?: string;
+    };
+    delta?: string;
 }
 
 export async function sseTranslateChat(
@@ -347,21 +351,54 @@ export async function sseTranslateChat(
 							const chunk = { error: { message: err } };
 							controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(chunk)}\n\n`));
 						} else if (kind === "response.completed") {
-							if (reasoningCompat === "tagged" && thinkOpen && !thinkClosed) {
-								const closeChunk = {
-									id: responseId,
-									object: "chat.completion.chunk",
-									created: created,
-									model: model,
-									choices: [{ index: 0, delta: { content: "</think>" }, finish_reason: null }]
-								};
-								controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(closeChunk)}\n\n`));
-								thinkOpen = false;
-								thinkClosed = true;
-							}
-							controller.enqueue(new TextEncoder().encode("data: [DONE]\n\n"));
-							break;
-						}
+                        if (reasoningCompat === "tagged" && thinkOpen && !thinkClosed) {
+                            const closeChunk = {
+                                id: responseId,
+                                object: "chat.completion.chunk",
+                                created: created,
+                                model: model,
+                                choices: [{ index: 0, delta: { content: "</think>" }, finish_reason: null }]
+                            };
+                            controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(closeChunk)}\n\n`));
+                            thinkOpen = false;
+                            thinkClosed = true;
+                        }
+                        // Emit OpenAI-compatible usage chunk if upstream provided usage
+                        try {
+                            const rawUsage = (evt.response && (evt.response as any).usage) || (evt as any).usage;
+                            if (rawUsage && typeof rawUsage === "object") {
+                                const prompt_tokens = (rawUsage as any).prompt_tokens ?? (rawUsage as any).input_tokens ?? 0;
+                                const completion_tokens =
+                                    (rawUsage as any).completion_tokens ?? (rawUsage as any).output_tokens ?? 0;
+                                const total_tokens =
+                                    (rawUsage as any).total_tokens ?? prompt_tokens + completion_tokens;
+                                const cache_creation_input_tokens = (rawUsage as any).cache_creation_input_tokens;
+                                const cache_read_input_tokens = (rawUsage as any).cache_read_input_tokens;
+
+                                const usageChunk: any = {
+                                    id: responseId,
+                                    object: "chat.completion.chunk",
+                                    created: created,
+                                    model: model,
+                                    choices: [{ index: 0, delta: {}, finish_reason: null }],
+                                    usage: {
+                                        prompt_tokens,
+                                        completion_tokens,
+                                        total_tokens,
+                                        ...(typeof cache_creation_input_tokens === "number"
+                                            ? { cache_creation_input_tokens }
+                                            : {}),
+                                        ...(typeof cache_read_input_tokens === "number"
+                                            ? { cache_read_input_tokens }
+                                            : {}),
+                                    },
+                                };
+                                controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(usageChunk)}\n\n`));
+                            }
+                        } catch {}
+                        controller.enqueue(new TextEncoder().encode("data: [DONE]\n\n"));
+                        break;
+                    }
 					}
 				}
             } catch (error) {
@@ -467,10 +504,43 @@ export async function sseTranslateText(
 								choices: [{ index: 0, text: "", finish_reason: "stop" }]
 							};
 							controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(chunk)}\n\n`));
-						} else if (kind === "response.completed") {
-							controller.enqueue(new TextEncoder().encode("data: [DONE]\n\n"));
-							break;
-						}
+                    } else if (kind === "response.completed") {
+                        // Emit usage for text completions if provided by upstream
+                        try {
+                            const rawUsage = (evt.response && (evt.response as any).usage) || (evt as any).usage;
+                            if (rawUsage && typeof rawUsage === "object") {
+                                const prompt_tokens = (rawUsage as any).prompt_tokens ?? (rawUsage as any).input_tokens ?? 0;
+                                const completion_tokens =
+                                    (rawUsage as any).completion_tokens ?? (rawUsage as any).output_tokens ?? 0;
+                                const total_tokens =
+                                    (rawUsage as any).total_tokens ?? prompt_tokens + completion_tokens;
+                                const cache_creation_input_tokens = (rawUsage as any).cache_creation_input_tokens;
+                                const cache_read_input_tokens = (rawUsage as any).cache_read_input_tokens;
+
+                                const usageChunk: any = {
+                                    id: responseId,
+                                    object: "text_completion.chunk",
+                                    created: created,
+                                    model: model,
+                                    choices: [{ index: 0, text: "", finish_reason: null }],
+                                    usage: {
+                                        prompt_tokens,
+                                        completion_tokens,
+                                        total_tokens,
+                                        ...(typeof cache_creation_input_tokens === "number"
+                                            ? { cache_creation_input_tokens }
+                                            : {}),
+                                        ...(typeof cache_read_input_tokens === "number"
+                                            ? { cache_read_input_tokens }
+                                            : {}),
+                                    },
+                                };
+                                controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(usageChunk)}\n\n`));
+                            }
+                        } catch {}
+                        controller.enqueue(new TextEncoder().encode("data: [DONE]\n\n"));
+                        break;
+                    }
 					}
 				}
             } catch (error) {
