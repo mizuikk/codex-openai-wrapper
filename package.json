@@ -2,6 +2,7 @@
 	"name": "codex-openai-wrapper",
 	"version": "0.0.0",
 	"private": true,
+	"packageManager": "npm@11.6.0",
 	"scripts": {
 		"prepare:wrangler-config": "node scripts/prepare-wrangler-config.mjs",
 		"deploy": "npm run prepare:wrangler-config && wrangler deploy --config .wrangler.generated.toml",

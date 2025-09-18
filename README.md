@@ -76,7 +76,7 @@ See compose and dev runtime in [docker-compose.yml](docker-compose.yml) and [Doc
 
 ### Option B — Local (Wrangler) without Docker
 
-- Requirements: Node.js 22+, pnpm/npm, Cloudflare Wrangler 4.x.
+- Requirements: Node.js 22+, npm, Cloudflare Wrangler 4.x.
 - Install deps:
 
 ```bash
