@@ -28,10 +28,12 @@ export async function sseTranslateChat(
     // Normalize compatibility mode once for the whole stream
     reasoningCompat = normalizeCompatMode(reasoningCompat);
 
-    const reader = upstreamResponse.body?.getReader();
-	if (!reader) {
-		throw new Error("Upstream response body is not readable.");
-	}
+    const upstreamBody = upstreamResponse.body;
+    const reader = upstreamBody?.getReader();
+    let canceled = false;
+    if (!reader) {
+        throw new Error("Upstream response body is not readable.");
+    }
 
 	let responseId = "chatcmpl-stream";
 	let thinkOpen = false;
@@ -39,10 +41,20 @@ export async function sseTranslateChat(
 	let sawAnySummary = false;
 	let pendingSummaryParagraph = false;
 
-	return new ReadableStream({
-		async start(controller) {
-			const decoder = new TextDecoder();
-			let buffer = "";
+    // Implement a custom ReadableStream that properly propagates downstream
+    // cancellation to the upstream source to avoid leaking resources.
+    // Notes (English):
+    // - When the client disconnects, the platform will call `cancel()` on this
+    //   stream. Without a `cancel` handler, the loop below would continue to
+    //   `read()` from the upstream and repeatedly throw on `enqueue`, wasting
+    //   compute and holding the upstream network connection open.
+    // - We therefore cancel the `reader` and, if available, cancel the
+    //   upstream body stream as well. This is the best-effort way to signal the
+    //   origin (e.g., OpenAI) to stop sending bytes.
+    return new ReadableStream({
+        async start(controller) {
+            const decoder = new TextDecoder();
+            let buffer = "";
 
 			try {
 				while (true) {
@@ -302,34 +314,44 @@ export async function sseTranslateChat(
 						}
 					}
 				}
-			} catch (error) {
-				console.error("SSE stream error:", error);
-				controller.error(error);
-			} finally {
-				reader.releaseLock();
-				controller.close();
-			}
-		}
-	});
+            } catch (error) {
+                if (!canceled) {
+                    console.error("SSE stream error:", error);
+                    try { controller.error(error as any); } catch {}
+                }
+            } finally {
+                try { reader.releaseLock(); } catch {}
+                try { controller.close(); } catch {}
+            }
+        },
+        async cancel(reason?: unknown) {
+            canceled = true;
+            try { await reader.cancel(reason as any); } catch {}
+            try { await upstreamBody?.cancel?.(reason as any); } catch {}
+        }
+    });
 }
 
 export async function sseTranslateText(
-	upstreamResponse: Response,
-	model: string,
-	created: number,
-	verbose: boolean = false
+    upstreamResponse: Response,
+    model: string,
+    created: number,
+    verbose: boolean = false
 ): Promise<ReadableStream> {
-	const reader = upstreamResponse.body?.getReader();
-	if (!reader) {
-		throw new Error("Upstream response body is not readable.");
-	}
+    const upstreamBody = upstreamResponse.body;
+    const reader = upstreamBody?.getReader();
+    let canceled = false;
+    if (!reader) {
+        throw new Error("Upstream response body is not readable.");
+    }
 
 	let responseId = "cmpl-stream";
 
-	return new ReadableStream({
-		async start(controller) {
-			const decoder = new TextDecoder();
-			let buffer = "";
+    // Same cancellation semantics as sseTranslateChat; see notes above.
+    return new ReadableStream({
+        async start(controller) {
+            const decoder = new TextDecoder();
+            let buffer = "";
 
 			try {
 				while (true) {
@@ -401,13 +423,20 @@ export async function sseTranslateText(
 						}
 					}
 				}
-			} catch (error) {
-				console.error("SSE stream error:", error);
-				controller.error(error);
-			} finally {
-				reader.releaseLock();
-				controller.close();
-			}
-		}
-	});
+            } catch (error) {
+                if (!canceled) {
+                    console.error("SSE stream error:", error);
+                    try { controller.error(error as any); } catch {}
+                }
+            } finally {
+                try { reader.releaseLock(); } catch {}
+                try { controller.close(); } catch {}
+            }
+        },
+        async cancel(reason?: unknown) {
+            canceled = true;
+            try { await reader.cancel(reason as any); } catch {}
+            try { await upstreamBody?.cancel?.(reason as any); } catch {}
+        }
+    });
 }
