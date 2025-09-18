@@ -49,14 +49,14 @@ app.route("/r1", openai);
 app.use("/o3/*", withCompat("o3"));
 app.route("/o3", openai);
 
-app.use("/standard/*", withCompat("standard"));
-app.route("/standard", openai);
+app.use("/openai/*", withCompat("openai"));
+app.route("/openai", openai);
 
 
 
 app.use("/hidden/*", withCompat("hidden"));
 app.route("/hidden", openai);
 
-// Note: 为避免与其他根级路由（如 /api）冲突，暂未开放通配形式 `/:compat/v1/*`。
+// Note: To avoid conflicts with other root-level routes (like /api), the wildcard form `/:compat/v1/*` is not currently enabled.
 
 export default app;

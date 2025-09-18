@@ -9,7 +9,7 @@ Transform OpenAI's Codex models into OpenAI-compatible endpoints using Cloudflar
 - 🔐 **OAuth2 Authentication** - Uses your OpenAI account credentials via Codex CLI
 - 🎯 **OpenAI-Compatible API** - Drop-in replacement for OpenAI endpoints
 - 📚 **OpenAI SDK Support** - Works with official OpenAI SDKs and libraries
-- 🧠 **Advanced Reasoning** - Configurable effort with multiple compatibility modes (`tagged`, `standard`, `o3`, `r1`)
+- 🧠 **Advanced Reasoning** - Configurable effort with multiple compatibility modes (`tagged`, `openai`, `o3`, `r1`)
 - 🛡️ **API Key Security** - Optional authentication layer for endpoint access
 - 🌐 **Third-party Integration** - Compatible with Open WebUI, Cline, and more
 - ⚡ **Cloudflare Workers** - Global edge deployment with low latency
@@ -310,7 +310,7 @@ This will ensure your worker uses a detailed and accurate `User-Agent` string, m
 |----------|---------|-------------|
 | `REASONING_EFFORT` | `minimal` | Reasoning effort level: `minimal`, `low`, `medium`, `high` |
 | `REASONING_SUMMARY` | `auto` | Summary mode: `auto`, `concise`, `detailed`, `none` (aliases: `on` = `concise`, `off` = `none`) |
-| `REASONING_COMPAT` | `tagged` | Output compatibility: `tagged`, `standard`, `o3`, `r1`, `hidden` (use `hidden` to suppress reasoning entirely) |
+| `REASONING_COMPAT` | `tagged` | Output compatibility: `tagged`, `openai`, `o3`, `r1`, `hidden` (use `hidden` to suppress reasoning entirely) |
 
 #### Integration & Tools
 
@@ -730,12 +730,12 @@ Aliases: `on` = `concise`, `off` = `none`.
 
 #### Compatibility Formats
 - **`tagged`**: Wrap reasoning in `<think>` tags
-- **`standard`**: Use plain string fields: `message.reasoning_summary` and `message.reasoning`
+- **`openai`**: Put CoT into `message.reasoning_content` (streaming emits `choices[0].delta.reasoning_content`)
 - **`o3`**: Use structured field: `message.reasoning = { content: [{ type: "text", text: "..." }] }`
 - **`r1`**: DeepSeek API shape — non‑streaming puts CoT into `message.reasoning_content`; streaming emits `choices[0].delta.reasoning_content`
 - **`hidden`**: Suppress all reasoning; only final assistant content is returned
 
-Note: The wrapper normalizes `REASONING_COMPAT` values (trims + lowercases), so inputs like `Standard`, `  o3  `, or `R1` are accepted.
+Note: The wrapper normalizes `REASONING_COMPAT` values (trims + lowercases). Accepted values: `tagged`, `openai`, `o3`, `r1`, `hidden`, `all`.
 
 #### "all" Mode (Multi-endpoint Compatibility)
 
@@ -744,7 +744,7 @@ Set `REASONING_COMPAT=all` (or `REASONING_OUTPUT_MODE=all`) to expose multiple p
 - `/tagged/v1/*`   → `tagged`
 - `/r1/v1/*`       → `r1`
 - `/o3/v1/*`       → `o3`
-- `/standard/v1/*` → `standard`
+- `/openai/v1/*` → `openai`
 - `/hidden/v1/*`   → `hidden`
 
 When ALL mode is enabled, the root `/v1/*` continues to work and defaults to `tagged`.
@@ -777,10 +777,9 @@ Think‑tags (SSE delta):
 { "object": "chat.completion.chunk", "choices": [{ "delta": { "content": "<think>" }, "finish_reason": null }] }
 ```
 
-Standard (SSE delta):
+OpenAI (SSE delta):
 ```json
-{ "object": "chat.completion.chunk", "choices": [{ "delta": { "reasoning_summary": "..." }, "finish_reason": null }] }
-{ "object": "chat.completion.chunk", "choices": [{ "delta": { "reasoning": "..." }, "finish_reason": null }] }
+{ "object": "chat.completion.chunk", "choices": [{ "delta": { "reasoning_content": "..." }, "finish_reason": null }] }
 ```
 
 O3 structured (SSE delta):
@@ -803,7 +802,7 @@ When `REASONING_COMPAT=tagged` and `REASONING_SUMMARY != none` (e.g., `auto`), t
 
 - How to control it:
   - Hide reasoning entirely: set `REASONING_COMPAT=hidden`, or send a request override `{ "reasoning": { "summary": "none" } }`.
-  - Keep reasoning without tags: use `REASONING_COMPAT=standard` so reasoning appears in `message.reasoning_summary` / `message.reasoning` fields instead of being inlined.
+  - Keep reasoning without tags: use `REASONING_COMPAT=openai` so reasoning appears as `message.reasoning_content` instead of being inlined.
   - Keep tags but shorten content: set `REASONING_SUMMARY=concise`, or request `{ "reasoning": { "summary": "concise" } }`.
 
 Example (non‑streaming) response snippet:
@@ -884,7 +883,7 @@ The wrapper can propagate selected client headers to the upstream to preserve cl
 - The dev server should bind to `0.0.0.0` via `wrangler.toml` `[dev] ip = "0.0.0.0"`.
 - Ensure there is no `wrangler.jsonc` at the repository root (tests use `test/wrangler.jsonc` to avoid overriding dev config).
 - You can also force the address: `npx wrangler dev --ip 0.0.0.0`.
-- SSE note: 在 default/safe/list 模式下，`Accept: text/event-stream` 会被强制设置；`override` 模式可修改 `Accept`，可能影响流式行为。
+- SSE note: In default/safe/list modes, `Accept: text/event-stream` is enforced; `override` mode can modify `Accept`, which may affect streaming behavior.
 
 
 ### Debug Endpoints

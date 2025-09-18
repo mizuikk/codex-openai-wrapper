@@ -55,6 +55,20 @@ export async function sseTranslateChat(
         async start(controller) {
             const decoder = new TextDecoder();
             let buffer = "";
+            let sentRole = false; // Emit an initial role chunk to align with OpenAI stream shape
+
+            const ensureRole = () => {
+                if (sentRole) return;
+                const roleChunk = {
+                    id: responseId,
+                    object: "chat.completion.chunk",
+                    created: created,
+                    model: model,
+                    choices: [{ index: 0, delta: { role: "assistant" }, finish_reason: null }]
+                };
+                controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(roleChunk)}\n\n`));
+                sentRole = true;
+            };
 
 			try {
 				while (true) {
@@ -97,9 +111,10 @@ export async function sseTranslateChat(
 							responseId = evt.response.id || responseId;
 						}
 
-						if (kind === "response.output_text.delta") {
-							const delta = evt.delta || "";
-							if (reasoningCompat === "tagged" && thinkOpen && !thinkClosed) {
+                        if (kind === "response.output_text.delta") {
+                            ensureRole();
+                            const delta = evt.delta || "";
+                            if (reasoningCompat === "tagged" && thinkOpen && !thinkClosed) {
 								const closeChunk = {
 									id: responseId,
 									object: "chat.completion.chunk",
@@ -119,8 +134,9 @@ export async function sseTranslateChat(
 								choices: [{ index: 0, delta: { content: delta }, finish_reason: null }]
 							};
 							controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(chunk)}\n\n`));
-						} else if (kind === "response.output_item.done") {
-							const item = evt.item;
+                        } else if (kind === "response.output_item.done") {
+                            ensureRole();
+                            const item = evt.item;
 							if (item && item.type === "function_call") {
 								const callId = item.call_id || item.id || "";
 								const name = item.name || "";
@@ -160,15 +176,16 @@ export async function sseTranslateChat(
 									controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(finishChunk)}\n\n`));
 								}
 							}
-						} else if (kind === "response.reasoning_summary_part.added") {
-							if (reasoningCompat === "tagged" || reasoningCompat === "o3") {
-								if (sawAnySummary) {
-									pendingSummaryParagraph = true;
-								} else {
-									sawAnySummary = true;
-								}
-							}
+                    } else if (kind === "response.reasoning_summary_part.added") {
+                        if (reasoningCompat === "tagged" || reasoningCompat === "o3" || reasoningCompat === "openai") {
+                            if (sawAnySummary) {
+                                pendingSummaryParagraph = true;
+                            } else {
+                                sawAnySummary = true;
+                            }
+                        }
                     } else if (kind === "response.reasoning_summary_text.delta" || kind === "response.reasoning_text.delta") {
+                        ensureRole();
                         const deltaTxt = evt.delta || "";
                         // Hide mode: swallow all reasoning deltas
                         if (reasoningCompat === "hidden") {
@@ -189,98 +206,131 @@ export async function sseTranslateChat(
                             };
                             controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(chunk)}\n\n`));
                         } else if (reasoningCompat === "o3") {
-								if (kind === "response.reasoning_summary_text.delta" && pendingSummaryParagraph) {
-									const nlChunk = {
-										id: responseId,
-										object: "chat.completion.chunk",
-										created: created,
-										model: model,
-										choices: [
-											{
-												index: 0,
-												delta: { reasoning: { content: [{ type: "text", text: "\n" }] } },
-												finish_reason: null
-											}
-										]
-									};
-									controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(nlChunk)}\n\n`));
-									pendingSummaryParagraph = false;
-								}
-								const chunk = {
-									id: responseId,
-									object: "chat.completion.chunk",
-									created: created,
-									model: model,
-									choices: [
-										{
-											index: 0,
-											delta: { reasoning: { content: [{ type: "text", text: deltaTxt }] } },
-											finish_reason: null
-										}
-									]
-								};
-								controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(chunk)}\n\n`));
+                            if (kind === "response.reasoning_summary_text.delta" && pendingSummaryParagraph) {
+                                const nlChunk = {
+                                    id: responseId,
+                                    object: "chat.completion.chunk",
+                                    created: created,
+                                    model: model,
+                                    choices: [
+                                        {
+                                            index: 0,
+                                            delta: { reasoning: { content: [{ type: "text", text: "\n" }] } },
+                                            finish_reason: null
+                                        }
+                                    ]
+                                };
+                                controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(nlChunk)}\n\n`));
+                                pendingSummaryParagraph = false;
+                            }
+                            const chunk = {
+                                id: responseId,
+                                object: "chat.completion.chunk",
+                                created: created,
+                                model: model,
+                                choices: [
+                                    {
+                                        index: 0,
+                                        delta: { reasoning: { content: [{ type: "text", text: deltaTxt }] } },
+                                        finish_reason: null
+                                    }
+                                ]
+                            };
+                            controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(chunk)}\n\n`));
+                        } else if (reasoningCompat === "openai") {
+                            // Compatible: stream reasoning as plain `reasoning_content`
+                            if (kind === "response.reasoning_summary_text.delta" && pendingSummaryParagraph) {
+                                const nlChunk = {
+                                    id: responseId,
+                                    object: "chat.completion.chunk",
+                                    created: created,
+                                    model: model,
+                                    choices: [
+                                        {
+                                            index: 0,
+                                            delta: { reasoning_content: "\n" },
+                                            finish_reason: null
+                                        }
+                                    ]
+                                };
+                                controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(nlChunk)}\n\n`));
+                                pendingSummaryParagraph = false;
+                            }
+                            const chunk = {
+                                id: responseId,
+                                object: "chat.completion.chunk",
+                                created: created,
+                                model: model,
+                                choices: [
+                                    {
+                                        index: 0,
+                                        delta: { reasoning_content: deltaTxt },
+                                        finish_reason: null
+                                    }
+                                ]
+                            };
+                            controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(chunk)}\n\n`));
                         } else if (reasoningCompat === "tagged") {
-								if (!thinkOpen && !thinkClosed) {
-									const openChunk = {
-										id: responseId,
-										object: "chat.completion.chunk",
-										created: created,
-										model: model,
-										choices: [{ index: 0, delta: { content: "<think>" }, finish_reason: null }]
-									};
-									controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(openChunk)}\n\n`));
-									thinkOpen = true;
-								}
-								if (thinkOpen && !thinkClosed) {
-									if (kind === "response.reasoning_summary_text.delta" && pendingSummaryParagraph) {
-										const nlChunk = {
-											id: responseId,
-											object: "chat.completion.chunk",
-											created: created,
-											model: model,
-											choices: [{ index: 0, delta: { content: "\n" }, finish_reason: null }]
-										};
-										controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(nlChunk)}\n\n`));
-										pendingSummaryParagraph = false;
-									}
-									const contentChunk = {
-										id: responseId,
-										object: "chat.completion.chunk",
-										created: created,
-										model: model,
-										choices: [{ index: 0, delta: { content: deltaTxt }, finish_reason: null }]
-									};
-									controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(contentChunk)}\n\n`));
-								}
-							} else {
-								// Default behavior for other compat modes
-								if (kind === "response.reasoning_summary_text.delta") {
-									const chunk = {
-										id: responseId,
-										object: "chat.completion.chunk",
-										created: created,
-										model: model,
-										choices: [
-											{
-												index: 0,
-												delta: { reasoning_summary: deltaTxt },
-												finish_reason: null
-											}
-										]
-									};
-									controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(chunk)}\n\n`));
-								} else {
-									const chunk = {
-										id: responseId,
-										object: "chat.completion.chunk",
-										created: created,
-										model: model,
-										choices: [{ index: 0, delta: { reasoning: deltaTxt }, finish_reason: null }]
-									};
-									controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(chunk)}\n\n`));
-								}
-							}
+                            if (!thinkOpen && !thinkClosed) {
+                                const openChunk = {
+                                    id: responseId,
+                                    object: "chat.completion.chunk",
+                                    created: created,
+                                    model: model,
+                                    choices: [{ index: 0, delta: { content: "<think>" }, finish_reason: null }]
+                                };
+                                controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(openChunk)}\n\n`));
+                                thinkOpen = true;
+                            }
+                            if (thinkOpen && !thinkClosed) {
+                                if (kind === "response.reasoning_summary_text.delta" && pendingSummaryParagraph) {
+                                    const nlChunk = {
+                                        id: responseId,
+                                        object: "chat.completion.chunk",
+                                        created: created,
+                                        model: model,
+                                        choices: [{ index: 0, delta: { content: "\n" }, finish_reason: null }]
+                                    };
+                                    controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(nlChunk)}\n\n`));
+                                    pendingSummaryParagraph = false;
+                                }
+                                const contentChunk = {
+                                    id: responseId,
+                                    object: "chat.completion.chunk",
+                                    created: created,
+                                    model: model,
+                                    choices: [{ index: 0, delta: { content: deltaTxt }, finish_reason: null }]
+                                };
+                                controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(contentChunk)}\n\n`));
+                            }
+                        } else {
+                            // Default behavior for other compat modes
+                            if (kind === "response.reasoning_summary_text.delta") {
+                                const chunk = {
+                                    id: responseId,
+                                    object: "chat.completion.chunk",
+                                    created: created,
+                                    model: model,
+                                    choices: [
+                                        {
+                                            index: 0,
+                                            delta: { reasoning_summary: deltaTxt },
+                                            finish_reason: null
+                                        }
+                                    ]
+                                };
+                                controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(chunk)}\n\n`));
+                            } else {
+                                const chunk = {
+                                    id: responseId,
+                                    object: "chat.completion.chunk",
+                                    created: created,
+                                    model: model,
+                                    choices: [{ index: 0, delta: { reasoning: deltaTxt }, finish_reason: null }]
+                                };
+                                controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(chunk)}\n\n`));
+                            }
+                        }
 						} else if (typeof kind === "string" && kind.endsWith(".done")) {
 							// Pass
 						} else if (kind === "response.output_text.done") {
