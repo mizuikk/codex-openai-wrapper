@@ -1,6 +1,11 @@
 # Environment variables for local development
 # Copy this file to .dev.vars and fill in your values
 
+# Cloudflare KV Namespace ID for binding `KV`
+# Used by scripts/prepare-wrangler-config.mjs to generate .wrangler.generated.toml
+# Accepts any of: KV_ID, KV_NAMESPACE_ID (first found wins)
+KV_ID=
+
 # OpenAI API Key for client authentication
 # This key is required for clients to access the proxy endpoints
 OPENAI_API_KEY=sk-your-openai-api-key-here

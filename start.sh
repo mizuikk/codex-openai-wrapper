@@ -1,18 +1,11 @@
 #!/bin/bash
 
-# Create .dev.vars file from environment variables
-echo "# Auto-generated .dev.vars file" > .dev.vars
+set -euo pipefail
 
-# Loop through all environment variables
-env | while read -r line; do
-  # Skip variables that are Docker/system specific
-  if [[ ! $line =~ ^(PATH|PWD|HOME|HOSTNAME|NODE_|npm_|YARN_|TERM|SHLVL|_).*$ ]]; then
-    echo "$line" >> .dev.vars
-  fi
-done
+# Generate a config that injects KV namespace IDs from environment/.dev.vars
+echo "[start] Preparing Wrangler config..."
+node scripts/prepare-wrangler-config.mjs
 
-# Log that environment variables were processed
-echo "Environment variables have been written to .dev.vars"
-
-# Start wrangler with the local environment variables
-exec wrangler dev --host 0.0.0.0 --port 8787 --local --persist-to .mf
+# Run wrangler dev with the generated config
+echo "[start] Starting wrangler dev on 0.0.0.0:8787"
+exec wrangler dev --host 0.0.0.0 --port 8787 --local --persist-to .mf --config .wrangler.generated.toml

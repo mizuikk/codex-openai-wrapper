@@ -7,9 +7,9 @@ compatibility_flags = ["nodejs_compat"]
 preview_urls = false
 
 # --- KV Namespaces ---
-kv_namespaces = [
-  { binding = "KV", id = "2e33dd7fc260405d906d61636cb82b61" }
-]
+# KV namespaces are injected at build/dev time via
+# scripts/prepare-wrangler-config.mjs to avoid committing IDs.
+# Do not define kv_namespaces here to allow generation without validation errors.
 
 
 # --- Local Development Configuration ---

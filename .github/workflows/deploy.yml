@@ -14,7 +14,14 @@ jobs:
     name: Deploy
     steps:
       - uses: actions/checkout@v4
+      - name: Generate wrangler config
+        run: node scripts/prepare-wrangler-config.mjs
+        env:
+          # Inject KV ID from repository secret (Settings → Secrets and variables → Actions)
+          KV_ID: ${{ secrets.KV_ID }}
       - name: Deploy
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          # Use generated config to avoid exposing KV ID in repo
+          command: deploy --config .wrangler.generated.toml
