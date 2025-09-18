@@ -24,6 +24,15 @@ async function main() {
   console.log('[start] Preparing Wrangler config (node entrypoint)...');
   await run('node', [join(__dirname, 'prepare-wrangler-config.mjs')]);
 
+  // Keep Worker types in sync with the wrangler version in the container.
+  // This prevents the "Your types might be out of date" warning on startup.
+  try {
+    console.log('[start] Generating Worker types...');
+    await run('wrangler', ['types']);
+  } catch (e) {
+    console.warn('[start] WARN: failed to generate types via "wrangler types":', e?.message || e);
+  }
+
   console.log('[start] Starting wrangler dev on 0.0.0.0:8787');
   // Important: use explicit args so it mirrors start.sh behavior
   await run('wrangler', [
@@ -40,4 +49,3 @@ main().catch((err) => {
   console.error('[start] Failed to start:', err?.stack || err?.message || String(err));
   process.exit(1);
 });
-

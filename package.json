@@ -5,7 +5,7 @@
 	"scripts": {
 		"prepare:wrangler-config": "node scripts/prepare-wrangler-config.mjs",
 		"deploy": "npm run prepare:wrangler-config && wrangler deploy --config .wrangler.generated.toml",
-		"dev": "npm run prepare:wrangler-config && wrangler dev --config .wrangler.generated.toml",
+    "dev": "npm run prepare:wrangler-config && wrangler types && wrangler dev --config .wrangler.generated.toml",
 		"start": "npm run dev",
 		"test": "vitest run",
 		"test:watch": "vitest",
