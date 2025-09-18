@@ -21,6 +21,8 @@ RUN npm install -g wrangler@latest
 
 # Copy package files first to leverage Docker cache
 COPY package*.json yarn.lock* ./
+# Ensure Wrangler config is available for postinstall scripts
+COPY wrangler.toml ./
 
 # Install project dependencies with yarn
 # Use --production flag for production builds, --frozen-lockfile for dev
