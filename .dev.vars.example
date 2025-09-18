@@ -20,15 +20,13 @@ OLLAMA_API_URL=http://localhost:11434
 DEBUG_MODEL=
 REASONING_EFFORT=medium  # Options: minimal, low, medium, high
 REASONING_SUMMARY=auto   # Options: auto, concise, detailed, none (on=concise, off=none)
-# Options: tagged, standard, o3, r1, legacy, current, hidden, all
+# Options: tagged, openai, o3, r1, hidden, all
 # When set to "all", the worker exposes multiple prefixed endpoints with per-endpoint
 # compatibility:
 #   /tagged/v1/*   -> tagged
 #   /r1/v1/*       -> r1
 #   /o3/v1/*       -> o3
-#   /standard/v1/* -> standard
-#   /legacy/v1/*   -> legacy
-#   /current/v1/*  -> current
+#   /openai/v1/* -> openai
 #   /hidden/v1/*   -> hidden
 # The root /v1/* continues to work and defaults to tagged under ALL mode.
 REASONING_COMPAT=tagged

@@ -26,9 +26,9 @@ openai.post("/v1/chat/completions", openaiAuthMiddleware(), async (c) => {
 	// Strictly reject legacy/current modes (no compatibility kept)
 	{
 		const compatRaw = String(reasoningCompat || "").trim().toLowerCase();
-		if (compatRaw === "legacy" || compatRaw === "current") {
+		if (compatRaw === "legacy" || compatRaw === "current" || compatRaw === "standard") {
 			return c.json(
-				{ error: { message: "REASONING_COMPAT/REASONING_OUTPUT_MODE no longer supports legacy/current. Use standard." } },
+				{ error: { message: "REASONING_COMPAT/REASONING_OUTPUT_MODE no longer supports legacy/current/standard. Use openai." } },
 				400
 			);
 		}
@@ -283,9 +283,9 @@ openai.post("/v1/completions", openaiAuthMiddleware(), async (c) => {
 		)
 			.trim()
 			.toLowerCase();
-		if (compatRaw === "legacy" || compatRaw === "current") {
+		if (compatRaw === "legacy" || compatRaw === "current" || compatRaw === "standard") {
 			return c.json(
-				{ error: { message: "REASONING_COMPAT/REASONING_OUTPUT_MODE no longer supports legacy/current. Use standard." } },
+				{ error: { message: "REASONING_COMPAT/REASONING_OUTPUT_MODE no longer supports legacy/current/standard. Use openai." } },
 				400
 			);
 		}

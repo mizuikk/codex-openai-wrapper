@@ -18,7 +18,7 @@ describe('reject legacy/current compat modes', () => {
     await waitOnExecutionContext(ctx);
     expect(res.status).toBe(400);
     const json = (await res.json()) as any;
-    expect(String(json?.error?.message || '')).toContain('Use standard');
+    expect(String(json?.error?.message || '')).toContain('Use openai');
   });
 
   it('400 when REASONING_OUTPUT_MODE=current', async () => {
@@ -34,7 +34,7 @@ describe('reject legacy/current compat modes', () => {
     await waitOnExecutionContext(ctx);
     expect(res.status).toBe(400);
     const json = (await res.json()) as any;
-    expect(String(json?.error?.message || '')).toContain('Use standard');
+    expect(String(json?.error?.message || '')).toContain('Use openai');
   });
 });
 it('400 when REASONING_COMPAT=legacy on /v1/completions', async () => {
@@ -49,5 +49,5 @@ it('400 when REASONING_COMPAT=legacy on /v1/completions', async () => {
   await waitOnExecutionContext(ctx);
   expect(res.status).toBe(400);
   const json = (await res.json()) as any;
-  expect(String(json?.error?.message || '')).toContain('Use standard');
+  expect(String(json?.error?.message || '')).toContain('Use openai');
 });

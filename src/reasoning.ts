@@ -58,7 +58,7 @@ export function normalizeCompatMode(compat: string): string {
 	try {
 		const normalized = (compat || "tagged").trim().toLowerCase();
 		// If the normalized value is not a known mode, default to tagged
-		const knownModes = new Set(["tagged", "standard", "o3", "r1", "hidden"]);
+		const knownModes = new Set(["tagged", "openai", "o3", "r1", "hidden"]);
 		return knownModes.has(normalized) ? normalized : "tagged";
 	} catch {
 		return "tagged";
@@ -91,11 +91,17 @@ export function applyReasoningToMessage(
 		return message;
 	}
 
-	// OpenAI Reasoning API JSON format
-	if (normalizedCompat === "o3") {
-		message.reasoning = { content: [{ type: "text", text: rtxt }] };
-		return message;
-	}
+    // For o3 keep structured OpenAI reasoning object
+    if (normalizedCompat === "o3") {
+        message.reasoning = { content: [{ type: "text", text: rtxt }] };
+        return message;
+    }
+
+    // Compatible openai mode: use `reasoning_content` (string)
+    if (normalizedCompat === "openai") {
+        message.reasoning_content = rtxt;
+        return message;
+    }
 
 	// DeepSeek R1 compatibility
 	if (normalizedCompat === "r1") {
@@ -103,16 +109,8 @@ export function applyReasoningToMessage(
 		return message;
 	}
 
-	// Standard OpenAI Chat Completions compatibility
-	if (normalizedCompat === "standard") {
-		if (reasoningSummaryText) {
-			message.reasoning_summary = reasoningSummaryText;
-		}
-		if (reasoningFullText){
-			message.reasoning = reasoningFullText;
-		}
-		return message;
-	}
+    // Note: legacy "standard" behavior/name removed; use "openai" instead
+    // in favor of official OpenAI-compatible reasoning object above.
 
 	// Default to tagged content compatibility
 	const thinkBlock = `<think>${rtxt}</think>`;

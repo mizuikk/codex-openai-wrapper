@@ -3,11 +3,11 @@ export type ReasoningEffort = "minimal" | "low" | "medium" | "high";
 export type ReasoningSummary = "auto" | "concise" | "detailed" | "none"; // aliases: on=concise, off=none
 // Compatibility modes for how upstream reasoning content is surfaced back to clients
 // - "tagged": prepend `<think>...</think>` to assistant content
-// - "standard": expose `reasoning_summary` and `reasoning` as plain strings (Chat Completions style)
+// - "openai": Compatible – `message.reasoning_content` (stream: `delta.reasoning_content`)
 // - "o3": expose structured `reasoning: { content: [{ type: 'text', text: ... }] }`
 // - "r1": DeepSeek API shape — `message.reasoning_content` (streaming: `delta.reasoning_content`)
 // - "hidden": suppress reasoning output entirely
-export type ReasoningCompat = "tagged" | "standard" | "o3" | "r1" | "hidden" | "all";
+export type ReasoningCompat = "tagged" | "openai" | "o3" | "r1" | "hidden" | "all";
 export type VerboseMode = "true" | "false";
 
 // Strict types for API and message handling

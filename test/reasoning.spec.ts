@@ -10,11 +10,11 @@ describe('applyReasoningToMessage', () => {
     expect(out.content!.startsWith('<think>S\n\nF</think>')).toBe(true);
   });
 
-  it('applies standard mode (strings)', () => {
-    const out = applyReasoningToMessage({ ...baseMsg }, 'S', 'F', 'standard');
-    expect(out.reasoning_summary).toBe('S');
-    expect(out.reasoning).toBe('F');
+  it('applies openai mode (reasoning_content)', () => {
+    const out = applyReasoningToMessage({ ...baseMsg }, 'S', 'F', 'openai') as any;
     expect(out.content).toBe('Hello');
+    expect(typeof out.reasoning_content).toBe('string');
+    expect(out.reasoning_content).toBe('S\n\nF');
   });
 
   it('applies o3 mode (structured content)', () => {
@@ -25,9 +25,8 @@ describe('applyReasoningToMessage', () => {
   });
 
   it('normalizes case/whitespace for compat', () => {
-    const out = applyReasoningToMessage({ ...baseMsg }, 'S', 'F', '  STANDARD  ');
-    expect(out.reasoning_summary).toBe('S');
-    expect(out.reasoning).toBe('F');
+    const out = applyReasoningToMessage({ ...baseMsg }, 'S', 'F', '  OPENAI  ') as any;
+    expect(out.reasoning_content).toBe('S\n\nF');
   });
 });
 
@@ -42,7 +41,7 @@ describe('normalizeCompatMode', () => {
   
   it('passes through known modes unchanged', () => {
     expect(normalizeCompatMode('hidden')).toBe('hidden');
-    expect(normalizeCompatMode('standard')).toBe('standard');
+    expect(normalizeCompatMode('openai')).toBe('openai');
     expect(normalizeCompatMode('tagged')).toBe('tagged');
     expect(normalizeCompatMode('r1')).toBe('r1');
     expect(normalizeCompatMode('o3')).toBe('o3');
@@ -50,7 +49,7 @@ describe('normalizeCompatMode', () => {
 
   it('handles case and whitespace for known modes', () => {
     expect(normalizeCompatMode('  TAGGED  ')).toBe('tagged');
-    expect(normalizeCompatMode('Standard')).toBe('standard');
+    expect(normalizeCompatMode('OpenAI')).toBe('openai');
     expect(normalizeCompatMode('R1')).toBe('r1');
     expect(normalizeCompatMode('O3')).toBe('o3');
   });
