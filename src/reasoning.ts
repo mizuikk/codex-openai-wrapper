@@ -51,13 +51,12 @@ interface ChatMessage {
 export const REASONING_COMPAT: { [key: string]: string } = {
 	legacy: "standard",
 	current: "standard",
-	hide: "hidden",
 };
 
 /**
  * Normalize compatibility mode with alias mapping
  * - Trims and lowercases the input
- * - Applies alias mappings (hide→hidden, legacy/current→standard)
+ * - Applies alias mappings (legacy/current→standard)
  * - Returns standardized compatibility mode
  */
 export function normalizeCompatMode(compat: string): string {

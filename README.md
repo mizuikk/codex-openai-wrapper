@@ -310,7 +310,7 @@ This will ensure your worker uses a detailed and accurate `User-Agent` string, m
 |----------|---------|-------------|
 | `REASONING_EFFORT` | `minimal` | Reasoning effort level: `minimal`, `low`, `medium`, `high` |
 | `REASONING_SUMMARY` | `auto` | Summary mode: `auto`, `concise`, `detailed`, `none` (aliases: `on` = `concise`, `off` = `none`) |
-| `REASONING_COMPAT` | `tagged` | Output compatibility: `tagged`, `standard`, `o3`, `legacy`, `current`, `hidden` (use `hidden` to suppress reasoning entirely) |
+| `REASONING_COMPAT` | `tagged` | Output compatibility: `tagged`, `standard`, `o3`, `r1`, `legacy`, `current`, `hidden` (use `hidden` to suppress reasoning entirely) |
 
 #### Integration & Tools
 
@@ -747,7 +747,7 @@ Set `REASONING_COMPAT=all` (or `REASONING_OUTPUT_MODE=all`) to expose multiple p
 - `/standard/v1/*` → `standard`
 - `/legacy/v1/*`   → `legacy`
 - `/current/v1/*`  → `current`
-- `/hide/v1/*`     → `hide`
+- `/hidden/v1/*`   → `hidden`
 
 When ALL mode is enabled, the root `/v1/*` continues to work and defaults to `tagged`.
 

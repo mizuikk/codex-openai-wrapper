@@ -32,10 +32,10 @@ describe('applyReasoningToMessage', () => {
 });
 
 describe('normalizeCompatMode', () => {
-  it('normalizes hide to hidden', () => {
-    expect(normalizeCompatMode('hide')).toBe('hidden');
-    expect(normalizeCompatMode('HIDE')).toBe('hidden');
-    expect(normalizeCompatMode('  hide  ')).toBe('hidden');
+  it('treats hide as unknown (falls back to tagged)', () => {
+    expect(normalizeCompatMode('hide')).toBe('tagged');
+    expect(normalizeCompatMode('HIDE')).toBe('tagged');
+    expect(normalizeCompatMode('  hide  ')).toBe('tagged');
   });
 
   it('normalizes legacy to standard', () => {

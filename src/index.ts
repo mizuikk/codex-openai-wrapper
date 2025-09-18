@@ -58,8 +58,8 @@ app.route("/legacy", openai);
 app.use("/current/*", withCompat("current"));
 app.route("/current", openai);
 
-app.use("/hide/*", withCompat("hide"));
-app.route("/hide", openai);
+app.use("/hidden/*", withCompat("hidden"));
+app.route("/hidden", openai);
 
 // Note: 为避免与其他根级路由（如 /api）冲突，暂未开放通配形式 `/:compat/v1/*`。
 

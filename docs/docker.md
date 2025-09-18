@@ -86,7 +86,7 @@ The service will be available at `http://localhost:8787`
 | `OPENAI_CODEX_AUTH` | JSON string with access tokens | ✅ | - |
 | `REASONING_EFFORT` | AI reasoning depth: `minimal`, `low`, `medium`, `high` | ❌ | `minimal` |
 | `REASONING_SUMMARY` | Summary mode: `auto`, `concise`, `detailed`, `none` (aliases: `on`=concise, `off`=none) | ❌ | `auto` |
-| `REASONING_COMPAT` | Compatibility mode: `tagged`, `standard`, `o3`, `r1`, `legacy`, `current`, `hide` | ❌ | `tagged` |
+| `REASONING_COMPAT` | Compatibility mode: `tagged`, `standard`, `o3`, `r1`, `legacy`, `current`, `hidden` | ❌ | `tagged` |
 | `VERBOSE` | Enable detailed logging: `true`, `false` | ❌ | `false` |
 | `DEBUG_MODEL` | Override model for debugging | ❌ | - |
 
