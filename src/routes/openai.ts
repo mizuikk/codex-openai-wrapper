@@ -20,8 +20,8 @@ openai.post("/v1/chat/completions", openaiAuthMiddleware(), async (c) => {
 			(c.env.REASONING_COMPAT as unknown as string | undefined) ||
 			"tagged");
 	if (reasoningCompat === "all") {
-		// Default the root /v1 to tagged when running in ALL mode
-		reasoningCompat = "tagged";
+		// Default the root /v1 to openai when running in ALL mode
+		reasoningCompat = "openai";
 	}
 	// Strictly reject legacy/current modes (no compatibility kept)
 	{

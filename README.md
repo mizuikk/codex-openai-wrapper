@@ -747,7 +747,7 @@ Set `REASONING_COMPAT=all` (or `REASONING_OUTPUT_MODE=all`) to expose multiple p
 - `/openai/v1/*` → `openai`
 - `/hidden/v1/*`   → `hidden`
 
-When ALL mode is enabled, the root `/v1/*` continues to work and defaults to `tagged`.
+When ALL mode is enabled, the root `/v1/*` continues to work and defaults to `openai`.
 
 ### Configuration Examples
 
