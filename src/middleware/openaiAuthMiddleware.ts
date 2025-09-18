@@ -20,8 +20,9 @@ export function openaiAuthMiddleware() {
 		const providedKey = authHeader.substring(7); // Remove "Bearer " prefix
 		const configuredKey = c.env.OPENAI_API_KEY;
 
+		// If no configured key is set in environment, skip auth enforcement
 		if (!configuredKey) {
-			await next();
+			return await next();
 		}
 
 		if (providedKey !== configuredKey) {

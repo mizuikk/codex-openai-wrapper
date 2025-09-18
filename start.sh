@@ -1,6 +1,7 @@
-#!/bin/bash
+#!/bin/sh
 
-set -euo pipefail
+# POSIX sh for portability; avoid pipefail (not in dash)
+set -eu
 
 # Generate a config that injects KV namespace IDs from environment/.dev.vars
 echo "[start] Preparing Wrangler config..."

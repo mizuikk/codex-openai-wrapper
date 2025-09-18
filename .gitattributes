@@ -1,2 +1,5 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Enforce LF for shell scripts to avoid /bin/sh^M errors in Linux containers
+*.sh text eol=lf

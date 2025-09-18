@@ -52,9 +52,5 @@ EXPOSE 8787
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:8787/health || exit 1
 
-# Create a startup script to handle environment variables
-COPY --chown=worker:nodejs start.sh /app/start.sh
-RUN chmod +x /app/start.sh
-
-# Use the startup script as entrypoint
-ENTRYPOINT ["/app/start.sh"]
+# Use a Node entrypoint to avoid shell/CRLF issues on Windows host mounts
+ENTRYPOINT ["node", "/app/scripts/start.mjs"]

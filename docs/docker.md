@@ -101,6 +101,14 @@ The [`docker-compose.yml`](../docker-compose.yml) includes:
 - **Health Checks**: Automatic service monitoring
 - **Restart Policy**: Automatic restart on failure
 
+### How environment variables reach the Worker
+
+- `scripts/start.mjs` calls `scripts/prepare-wrangler-config.mjs` inside the container.
+- During Docker/dev containers, the script detects `/.dockerenv` and injects a `[vars]` section built from container environment variables.
+- When running `npm run dev` directly on the host, the script skips generating `[vars]` so Wrangler continues to read from `.dev.vars` and keeps sensitive values hidden in the CLI output.
+- Wrangler uses this file during `wrangler dev` so your Worker can read configuration via `c.env.*` (e.g., `c.env.OPENAI_API_KEY`).
+- For local development, `.dev.vars` is also loaded (without overwriting existing env) and is commonly referenced by `docker-compose.yml` through `env_file`.
+
 ## 🛠️ Development Setup
 
 ### Hot Reloading

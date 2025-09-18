@@ -1,0 +1,29 @@
+# Exclude local/dev secrets and environment files from build context
+.dev.vars
+.dev.vars*
+.env
+.env.*
+.wrangler.generated.toml
+.wrangler/
+.mf
+.local/
+
+# VCS and CI metadata
+.git/
+.github/
+
+# Host dependencies and caches (built inside image instead)
+node_modules/
+.npm/
+.yarn/
+.pnpm-store/
+
+# Logs and transient outputs
+*.log
+logs/
+dist/
+
+# Editor/IDE
+.vscode/
+.idea/
+
