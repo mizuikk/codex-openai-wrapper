@@ -174,3 +174,14 @@ dist
 
 # Cloudflare Worker generated types
 worker-configuration.d.ts
+
+# IDE/editor config (local)
+.vscode/
+.idea/
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Miniflare local state
+.mf/
