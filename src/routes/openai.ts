@@ -4,6 +4,7 @@ import { startUpstreamRequest } from "../upstream";
 import { normalizeModelName, convertChatMessagesToResponsesInput, convertToolsChatToResponses } from "../utils";
 import { buildReasoningParam, applyReasoningToMessage, extractReasoningFromModelName } from "../reasoning";
 import { sseTranslateChat, sseTranslateText } from "../sse";
+import { normalizeUsage } from "../usage";
 import { getInstructionsForModel } from "../instructions";
 import { openaiAuthMiddleware } from "../middleware/openaiAuthMiddleware";
 
@@ -150,6 +151,7 @@ openai.post("/v1/chat/completions", openaiAuthMiddleware(), async (c) => {
 		let reasoningSummaryText = "";
 		let reasoningFullText = "";
 		let responseId = "chatcmpl";
+		let finalUsage: ReturnType<typeof normalizeUsage> | null = null;
 		const toolCalls: Array<{ id: string; type: string; function: { name: string; arguments: string } }> = [];
 		let errorMessage: string | null = null;
 
@@ -189,6 +191,13 @@ openai.post("/v1/chat/completions", openaiAuthMiddleware(), async (c) => {
 								if (evt.response && typeof evt.response.id === "string") {
 									responseId = evt.response.id || responseId;
 								}
+								// Capture usage when available; prefer the one from response.completed
+								try {
+									const rawUsage = (evt.response && (evt.response as any).usage) || (evt as any).usage;
+									const u = normalizeUsage(rawUsage);
+									if (u && !finalUsage) finalUsage = u;
+									if (u && kind === "response.completed") finalUsage = u;
+								} catch {}
 								if (kind === "response.output_text.delta") {
 									fullText += evt.delta || "";
 								} else if (kind === "response.reasoning_summary_text.delta") {
@@ -239,7 +248,7 @@ openai.post("/v1/chat/completions", openaiAuthMiddleware(), async (c) => {
 		}
 		message = applyReasoningToMessage(message, reasoningSummaryText, reasoningFullText, reasoningCompat);
 
-		const completion = {
+		const completion: any = {
 			id: responseId || "chatcmpl",
 			object: "chat.completion",
 			created: created,
@@ -252,6 +261,7 @@ openai.post("/v1/chat/completions", openaiAuthMiddleware(), async (c) => {
 				}
 			]
 		};
+		if (finalUsage) completion.usage = finalUsage;
 		return new Response(JSON.stringify(completion), {
 			status: upstream.status,
 			headers: {
@@ -357,6 +367,7 @@ openai.post("/v1/completions", openaiAuthMiddleware(), async (c) => {
 	} else {
 		let fullText = "";
 		let responseId = "cmpl";
+		let finalUsage2: ReturnType<typeof normalizeUsage> | null = null;
 
 		try {
 			const reader = upstream.body?.getReader();
@@ -394,6 +405,13 @@ openai.post("/v1/completions", openaiAuthMiddleware(), async (c) => {
 									responseId = evt.response.id || responseId;
 								}
 								const kind = evt.type;
+								// Capture usage when available; prefer the one from response.completed
+								try {
+									const rawUsage = (evt.response && (evt.response as any).usage) || (evt as any).usage;
+									const u = normalizeUsage(rawUsage);
+									if (u && !finalUsage2) finalUsage2 = u;
+									if (u && kind === "response.completed") finalUsage2 = u;
+								} catch {}
 								if (kind === "response.output_text.delta") {
 									fullText += evt.delta || "";
 								} else if (kind === "response.completed") {
@@ -411,13 +429,14 @@ openai.post("/v1/completions", openaiAuthMiddleware(), async (c) => {
 			return c.json({ error: { message: `Error reading upstream response: ${streamError}` } }, 502);
 		}
 
-		const completion = {
+		const completion: any = {
 			id: responseId || "cmpl",
 			object: "text_completion",
 			created: created,
 			model: model,
 			choices: [{ index: 0, text: fullText, finish_reason: "stop", logprobs: null }]
 		};
+		if (finalUsage2) completion.usage = finalUsage2;
 		return new Response(JSON.stringify(completion), {
 			status: upstream.status,
 			headers: {

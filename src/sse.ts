@@ -1,5 +1,6 @@
 // src/sse.ts
 import { normalizeCompatMode } from "./reasoning";
+import { normalizeUsage } from "./usage";
 interface SseEvent {
 	type: string;
 	response?: {
@@ -380,26 +381,15 @@ export async function sseTranslateChat(
 							// Emit OpenAI-compatible usage chunk if upstream provided usage
 							try {
 								const rawUsage = (evt.response && (evt.response as any).usage) || (evt as any).usage;
-								if (rawUsage && typeof rawUsage === "object") {
-									const prompt_tokens = (rawUsage as any).prompt_tokens ?? (rawUsage as any).input_tokens ?? 0;
-									const completion_tokens = (rawUsage as any).completion_tokens ?? (rawUsage as any).output_tokens ?? 0;
-									const total_tokens = (rawUsage as any).total_tokens ?? prompt_tokens + completion_tokens;
-									const cache_creation_input_tokens = (rawUsage as any).cache_creation_input_tokens;
-									const cache_read_input_tokens = (rawUsage as any).cache_read_input_tokens;
-
+								const usage = normalizeUsage(rawUsage);
+								if (usage) {
 									const usageChunk: any = {
 										id: responseId,
 										object: "chat.completion.chunk",
 										created: created,
 										model: model,
 										choices: [{ index: 0, delta: {}, finish_reason: null }],
-										usage: {
-											prompt_tokens,
-											completion_tokens,
-											total_tokens,
-											...(typeof cache_creation_input_tokens === "number" ? { cache_creation_input_tokens } : {}),
-											...(typeof cache_read_input_tokens === "number" ? { cache_read_input_tokens } : {})
-										}
+										usage
 									};
 									controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(usageChunk)}\n\n`));
 								}
@@ -526,26 +516,15 @@ export async function sseTranslateText(
 							// Emit usage for text completions if provided by upstream
 							try {
 								const rawUsage = (evt.response && (evt.response as any).usage) || (evt as any).usage;
-								if (rawUsage && typeof rawUsage === "object") {
-									const prompt_tokens = (rawUsage as any).prompt_tokens ?? (rawUsage as any).input_tokens ?? 0;
-									const completion_tokens = (rawUsage as any).completion_tokens ?? (rawUsage as any).output_tokens ?? 0;
-									const total_tokens = (rawUsage as any).total_tokens ?? prompt_tokens + completion_tokens;
-									const cache_creation_input_tokens = (rawUsage as any).cache_creation_input_tokens;
-									const cache_read_input_tokens = (rawUsage as any).cache_read_input_tokens;
-
+								const usage = normalizeUsage(rawUsage);
+								if (usage) {
 									const usageChunk: any = {
 										id: responseId,
 										object: "text_completion.chunk",
 										created: created,
 										model: model,
 										choices: [{ index: 0, text: "", finish_reason: null }],
-										usage: {
-											prompt_tokens,
-											completion_tokens,
-											total_tokens,
-											...(typeof cache_creation_input_tokens === "number" ? { cache_creation_input_tokens } : {}),
-											...(typeof cache_read_input_tokens === "number" ? { cache_read_input_tokens } : {})
-										}
+										usage
 									};
 									controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(usageChunk)}\n\n`));
 								}
