@@ -388,7 +388,7 @@ export async function sseTranslateChat(
 										object: "chat.completion.chunk",
 										created: created,
 										model: model,
-										choices: [{ index: 0, delta: {}, finish_reason: null }],
+										choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
 										usage
 									};
 									controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(usageChunk)}\n\n`));
@@ -523,7 +523,7 @@ export async function sseTranslateText(
 										object: "text_completion.chunk",
 										created: created,
 										model: model,
-										choices: [{ index: 0, text: "", finish_reason: null }],
+										choices: [{ index: 0, text: "", finish_reason: "stop" }],
 										usage
 									};
 									controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(usageChunk)}\n\n`));

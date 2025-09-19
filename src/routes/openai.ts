@@ -159,6 +159,9 @@ openai.post("/v1/chat/completions", openaiAuthMiddleware(), async (c) => {
 		// This part would typically involve consuming the stream and aggregating the results
 		// For a non-streaming response, the upstream would ideally return a single JSON object
 		// For now, we'll simulate by just getting the full text if available.
+		let rawAll = "";
+		let sawDataPrefix = false;
+		let completedEarly = false;
 		try {
 			const reader = upstream.body?.getReader();
 			if (reader) {
@@ -176,13 +179,16 @@ openai.post("/v1/chat/completions", openaiAuthMiddleware(), async (c) => {
 						break;
 					}
 					const { done, value } = await reader.read();
-					if (done) break;
-					buffer += decoder.decode(value, { stream: true });
+					if (done || completedEarly) break;
+					const chunkStr = decoder.decode(value, { stream: true });
+					buffer += chunkStr;
+					rawAll += chunkStr;
 					// Simple parsing for non-streaming, assuming full JSON per line or similar
 					const lines = buffer.split("\n");
 					buffer = lines.pop() || "";
 					for (const line of lines) {
 						if (line.startsWith("data: ")) {
+							sawDataPrefix = true;
 							const data = line.substring("data: ".length).trim();
 							if (data === "[DONE]") break;
 							try {
@@ -221,6 +227,8 @@ openai.post("/v1/chat/completions", openaiAuthMiddleware(), async (c) => {
 								} else if (kind === "response.failed") {
 									errorMessage =
 										(evt.response && evt.response.error && evt.response.error.message) || "response.failed";
+								} else if (kind === "response.completed") {
+									completedEarly = true;
 								}
 							} catch (parseError) {
 								console.error("Error parsing non-streamed SSE data:", parseError);
@@ -234,6 +242,50 @@ openai.post("/v1/chat/completions", openaiAuthMiddleware(), async (c) => {
 			errorMessage = `Error reading upstream response: ${streamError}`;
 		}
 
+		// Fallback: accept non-SSE single JSON body from upstream
+		try {
+			if (!sawDataPrefix && rawAll.trim()) {
+				const parsed = JSON.parse(rawAll.trim());
+				if (parsed && typeof parsed === "object") {
+					try {
+						if (typeof (parsed as any).id === "string") responseId = (parsed as any).id || responseId;
+					} catch {}
+					try {
+						const u = normalizeUsage((parsed as any).usage || (parsed as any).response?.usage);
+						if (u) finalUsage = u;
+					} catch {}
+					try {
+						const maybeText =
+							(parsed as any).output_text ??
+							(parsed as any).text ??
+							(parsed as any).message?.content ??
+							(parsed as any).choices?.[0]?.message?.content ??
+							(parsed as any).choices?.[0]?.text ??
+							"";
+						if (typeof maybeText === "string" && maybeText) fullText = fullText || maybeText;
+					} catch {}
+					try {
+						const maybeToolCalls =
+							(parsed as any).tool_calls ??
+							(parsed as any).choices?.[0]?.message?.tool_calls ??
+							[];
+						if (Array.isArray(maybeToolCalls) && maybeToolCalls.length) {
+							for (const tc of maybeToolCalls) {
+								try {
+									if (tc && tc.type === "function" && tc.function?.name) {
+										toolCalls.push({
+											id: String(tc.id || ""),
+											type: "function",
+											function: { name: String(tc.function.name), arguments: String(tc.function.arguments ?? "") }
+										});
+									}
+								} catch {}
+							}
+						}
+					} catch {}
+				}
+			}
+		} catch {}
 		if (errorMessage) {
 			return c.json({ error: { message: errorMessage } }, 502);
 		}
@@ -369,6 +421,9 @@ openai.post("/v1/completions", openaiAuthMiddleware(), async (c) => {
 		let responseId = "cmpl";
 		let finalUsage2: ReturnType<typeof normalizeUsage> | null = null;
 
+		let rawAll = "";
+		let sawDataPrefix = false;
+		let completedEarly = false;
 		try {
 			const reader = upstream.body?.getReader();
 			if (reader) {
@@ -385,13 +440,16 @@ openai.post("/v1/completions", openaiAuthMiddleware(), async (c) => {
 						break;
 					}
 					const { done, value } = await reader.read();
-					if (done) break;
-					buffer += decoder.decode(value, { stream: true });
+					if (done || completedEarly) break;
+					const chunkStr = decoder.decode(value, { stream: true });
+					buffer += chunkStr;
+					rawAll += chunkStr;
 
 					const lines = buffer.split("\n");
 					buffer = lines.pop() || "";
 					for (const line of lines) {
 						if (line.startsWith("data: ")) {
+							sawDataPrefix = true;
 							const data = line.substring("data: ".length).trim();
 							if (!data || data === "[DONE]") {
 								if (data === "[DONE]") {
@@ -415,7 +473,7 @@ openai.post("/v1/completions", openaiAuthMiddleware(), async (c) => {
 								if (kind === "response.output_text.delta") {
 									fullText += evt.delta || "";
 								} else if (kind === "response.completed") {
-									break;
+									completedEarly = true;
 								}
 							} catch (parseError) {
 								console.error("Error parsing non-streamed SSE data:", parseError);
@@ -429,6 +487,30 @@ openai.post("/v1/completions", openaiAuthMiddleware(), async (c) => {
 			return c.json({ error: { message: `Error reading upstream response: ${streamError}` } }, 502);
 		}
 
+		// Fallback: accept non-SSE single JSON body from upstream (text completions)
+		try {
+			if (!sawDataPrefix && rawAll.trim()) {
+				const parsed2 = JSON.parse(rawAll.trim());
+				if (parsed2 && typeof parsed2 === "object") {
+					try {
+						if (typeof (parsed2 as any).id === "string") responseId = (parsed2 as any).id || responseId;
+					} catch {}
+					try {
+						const u2 = normalizeUsage((parsed2 as any).usage || (parsed2 as any).response?.usage);
+						if (u2) finalUsage2 = u2;
+					} catch {}
+					try {
+						const maybeText2 =
+							(parsed2 as any).output_text ??
+							(parsed2 as any).text ??
+							(parsed2 as any).choices?.[0]?.text ??
+							(parsed2 as any).choices?.[0]?.message?.content ??
+							"";
+						if (typeof maybeText2 === "string" && maybeText2) fullText = fullText || maybeText2;
+					} catch {}
+				}
+			}
+		} catch {}
 		const completion: any = {
 			id: responseId || "cmpl",
 			object: "text_completion",
