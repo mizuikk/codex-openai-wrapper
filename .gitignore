@@ -170,3 +170,7 @@ dist
 # local folder
 
 .local/
+
+
+# Cloudflare Worker generated types
+worker-configuration.d.ts
