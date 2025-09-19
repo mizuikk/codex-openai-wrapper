@@ -79,7 +79,7 @@ REASONING_OUTPUT_MODE=openai
 # Enables pass-through routes under /api/* (e.g., POST /api/chat, GET /api/tags)
 # ------------------------------------------------------------------------------
 # Local default:
-OLLAMA_API_URL=http://localhost:11434
+# OLLAMA_API_URL=http://localhost:11434
 
 # ------------------------------------------------------------------------------
 # 6) Models exposed by GET /v1/models
